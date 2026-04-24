@@ -1,0 +1,601 @@
+import Foundation
+import AppKit
+import SwiftUI
+
+// MARK: - NotchController — Alcove-style animated notch with 3 states
+
+@MainActor
+class NotchController: ObservableObject {
+    static let shared = NotchController()
+
+    @Published var state: NotchState = .idle
+    @Published var contentVisible: Bool = false
+    @Published var screenshotJustArrived: Bool = false
+
+    // Notification state (Dynamic Island style)
+    @Published var notificationContentVisible: Bool = false
+    @Published var notificationThumbnail: NSImage? = nil
+    @Published var notificationIcon: String? = nil
+    @Published var notificationIconColor: Color = .white
+    @Published var notificationIconFill: Color? = nil
+    @Published var notificationRightText: String? = nil
+    @Published var notificationShowCheckmark: Bool = false
+    @Published var notificationWide: Bool = false
+
+    private var panel: NSPanel?
+    private var mouseMonitor: Any?
+    private var localMouseMonitor: Any?
+    private var hoverTask: Task<Void, Never>?
+    private var expandTask: Task<Void, Never>?
+    private var collapseTask: Task<Void, Never>?
+    private var notificationTask: Task<Void, Never>?
+    private var autoCollapseTimer: Timer?
+
+    // Mouse velocity tracking
+    private var lastMousePoint: NSPoint = .zero
+    private var lastMouseTime: TimeInterval = 0
+    private var lastMouseSpeed: CGFloat = 0
+
+    // Tuned parameters — hoverDebounce is read from settings (0-500ms, configurable)
+    private var hoverDebounceNanos: UInt64 {
+        UInt64(AppState.shared.settings.hoverDelayMs) * 1_000_000
+    }
+    private let collapseDelayNanos: UInt64 = 300_000_000  // 300ms delay before collapse
+    private let maxTriggerSpeed: CGFloat = 300  // px/sec — ignore fast mouse transits
+
+    // Geometry — @AppStorage for live Settings preview propagation
+    @AppStorage("notchCornerRadius")   var cornerRadius: Double = 10
+    @AppStorage("notchExpandedWidth")  var expandedWidth: Double = 600
+    @AppStorage("notchExpandedHeight") var expandedHeight: Double = 180
+
+    private(set) var notchSize: CGSize = .zero
+    private(set) var hasPhysicalNotch: Bool = false
+
+    var expandedSize: CGSize {
+        CGSize(width: expandedWidth, height: expandedHeight)
+    }
+
+    // MARK: - Setup
+
+    func setup() {
+        guard let screen = NSScreen.main else { return }
+
+        // Calculate notch geometry
+        hasPhysicalNotch = screen.safeAreaInsets.top > 0
+        notchSize = calculateNotchSize(screen: screen)
+
+        // Panel is ALWAYS at max expanded size — we animate the shape inside, not the window
+        let panelFrame = calculateMaxPanelFrame(screen: screen)
+
+        let panel = NotchPanel(
+            contentRect: panelFrame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .statusBar + 1
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .fullScreenAuxiliary]
+        panel.ignoresMouseEvents = true  // Starts true — only false when expanded (prevents stealing clicks from other apps)
+        panel.hidesOnDeactivate = false
+        panel.isMovable = false
+        panel.isMovableByWindowBackground = false
+        panel.acceptsMouseMovedEvents = true
+
+        // SwiftUI content — NotchRootView with the animated shape
+        let hostingView = NSHostingView(rootView:
+            NotchRootView(controller: self)
+                .environmentObject(AppState.shared)
+        )
+        hostingView.frame = panel.contentView?.bounds ?? .zero
+        hostingView.autoresizingMask = [.width, .height]
+        panel.contentView = hostingView
+
+        panel.orderFront(nil)
+        self.panel = panel
+
+        // Start mouse tracking
+        startMouseTracking()
+
+        // Observe screen parameter changes (resolution change, display (dis)connect,
+        // fullscreen toggles that alter the menu bar) so the panel stays glued to the top.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screenParametersDidChange),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
+        // Space changes (e.g. switching to a fullscreen app's Space) can also leave
+        // the panel anchored to stale geometry — re-anchor on activation too.
+        NSWorkspace.shared.notificationCenter.addObserver(
+            self,
+            selector: #selector(screenParametersDidChange),
+            name: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func screenParametersDidChange() {
+        // Hop to the next runloop tick so NSScreen reports the new geometry.
+        DispatchQueue.main.async { [weak self] in
+            self?.repositionForCurrentScreen()
+        }
+    }
+
+    private func repositionForCurrentScreen() {
+        guard let panel, let screen = NSScreen.main else { return }
+        hasPhysicalNotch = screen.safeAreaInsets.top > 0
+        notchSize = calculateNotchSize(screen: screen)
+        let newFrame = calculateMaxPanelFrame(screen: screen)
+        if panel.frame != newFrame {
+            panel.setFrame(newFrame, display: true, animate: false)
+        }
+    }
+
+    // MARK: - State Transitions (with velocity preservation and interruptibility)
+
+    func triggerHover() {
+        guard state == .idle else { return }
+        hoverTask?.cancel()
+
+        let delay = hoverDebounceNanos
+        if delay == 0 {
+            // Accept mouse events so the local monitor can receive clicks to expand
+            panel?.ignoresMouseEvents = false
+            HapticManager.shared.hoverTap()
+            withAnimation(NotchAnimation.hover) {
+                state = .hovering
+            }
+        } else {
+            hoverTask = Task {
+                try? await Task.sleep(nanoseconds: delay)
+                guard !Task.isCancelled else { return }
+                panel?.ignoresMouseEvents = false
+                HapticManager.shared.hoverTap()
+                withAnimation(NotchAnimation.hover) {
+                    state = .hovering
+                }
+            }
+        }
+    }
+
+    func triggerExpand() {
+        // Cancel any collapse in progress
+        collapseTask?.cancel()
+        collapseTask = nil
+        hoverTask?.cancel()
+        autoCollapseTimer?.invalidate()
+        autoCollapseTimer = nil
+
+        guard state != .expanded else { return }
+
+        HapticManager.shared.expandTap()
+
+        expandTask = Task { @MainActor in
+            // Allow key + accept mouse events so drag-and-drop works in expanded state
+            (panel as? NotchPanel)?.allowKey = true
+            panel?.ignoresMouseEvents = false
+
+            // Step 1: animate the SHAPE (immediate)
+            withAnimation(NotchAnimation.expand) {
+                state = .expanded
+            }
+            AppState.shared.isNotchExpanded = true
+
+            // Step 2: content fades in with delay (stagger) — the delay is in NotchAnimation.contentIn
+            withAnimation(NotchAnimation.contentIn) {
+                contentVisible = true
+            }
+
+            // Start auto-collapse timer
+            startAutoCollapseTimer()
+        }
+    }
+
+    func triggerCollapse() {
+        expandTask?.cancel()
+        expandTask = nil
+        hoverTask?.cancel()
+
+        collapseTask = Task { @MainActor in
+            HapticManager.shared.notchCollapsed()
+
+            // Step 1: hide content FIRST (immediate)
+            withAnimation(NotchAnimation.contentOut) {
+                contentVisible = false
+            }
+
+            // Step 2: after 80ms close the shape
+            try? await Task.sleep(nanoseconds: 80_000_000) // 80ms
+            guard !Task.isCancelled else { return }
+
+            withAnimation(NotchAnimation.collapse) {
+                state = .idle
+            }
+            AppState.shared.isNotchExpanded = false
+            autoCollapseTimer?.invalidate()
+            autoCollapseTimer = nil
+
+            // Revoke key status + stop intercepting mouse events
+            (panel as? NotchPanel)?.allowKey = false
+            panel?.resignKey()
+            panel?.ignoresMouseEvents = true
+        }
+    }
+
+    func cancelCollapse() {
+        collapseTask?.cancel()
+        collapseTask = nil
+        autoCollapseTimer?.invalidate()
+        autoCollapseTimer = nil
+    }
+
+    // MARK: - Show New Screenshot (Dynamic Island notification instead of full expand)
+
+    func showNewScreenshot() {
+        guard let lastItem = AppState.shared.screenshots.first else { return }
+        triggerCaptureNotification(screenshot: lastItem)
+    }
+
+    // MARK: - Capture Notification (thumbnail + checkmark)
+
+    func triggerCaptureNotification(screenshot: ScreenshotItem) {
+        // If already in notification, cancel and restart
+        notificationTask?.cancel()
+        resetNotificationContent()
+
+        // If expanded, don't interrupt
+        guard state != .expanded else { return }
+
+        // Set notification content
+        notificationThumbnail = screenshot.cachedThumbnail
+        notificationIcon = nil
+        notificationRightText = nil
+        notificationShowCheckmark = true
+        notificationWide = false
+
+        startNotificationSequence()
+    }
+
+    // MARK: - Clipboard Notification (icon + contextual text)
+
+    func triggerClipboardNotification(item: ClipboardItem) {
+        notificationTask?.cancel()
+        resetNotificationContent()
+        guard state != .expanded else { return }
+
+        notificationThumbnail = nil
+        notificationIcon = item.notchIcon
+        notificationIconColor = item.notchIconColor
+        notificationIconFill = nil
+
+        // URL: show text snippet, no checkmark; everything else: checkmark only
+        if item.type == .url {
+            notificationRightText = item.notchRightLabel
+            notificationShowCheckmark = false
+            notificationWide = true
+        } else {
+            notificationRightText = nil
+            notificationShowCheckmark = true
+            notificationWide = false
+        }
+
+        startNotificationSequence()
+    }
+
+    private func resetNotificationContent() {
+        notificationContentVisible = false
+        notificationThumbnail = nil
+        notificationIcon = nil
+        notificationRightText = nil
+        notificationShowCheckmark = false
+        notificationWide = false
+        notificationIconColor = .white
+        notificationIconFill = nil
+    }
+
+    // MARK: - Notification Timing Sequence
+
+    private func startNotificationSequence() {
+        hoverTask?.cancel()
+        collapseTask?.cancel()
+
+        notificationTask = Task { @MainActor in
+            // t=0ms: expand the pill
+            HapticManager.shared.hoverTap()
+            withAnimation(NotchAnimation.notificationExpand) {
+                state = .captureNotification
+            }
+
+            // t=80ms: content fades in
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(NotchAnimation.notificationContentIn) {
+                notificationContentVisible = true
+            }
+
+            // t=2080ms: content fades out
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(NotchAnimation.notificationContentOut) {
+                notificationContentVisible = false
+            }
+
+            // t=2180ms: contract the pill
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            guard !Task.isCancelled else { return }
+            withAnimation(NotchAnimation.notificationContract) {
+                state = .idle
+            }
+
+            // Clean up
+            notificationThumbnail = nil
+            notificationIcon = nil
+            notificationRightText = nil
+        }
+    }
+
+    // Legacy compatibility
+    func expand() {
+        triggerExpand()
+    }
+
+    func collapse() {
+        hoverTask?.cancel()
+        collapseTask?.cancel()
+        expandTask?.cancel()
+        withAnimation(NotchAnimation.collapse) {
+            state = .idle
+            contentVisible = false
+        }
+        AppState.shared.isNotchExpanded = false
+        autoCollapseTimer?.invalidate()
+        autoCollapseTimer = nil
+
+        // Revoke key status + stop intercepting mouse events
+        (panel as? NotchPanel)?.allowKey = false
+        panel?.resignKey()
+        panel?.ignoresMouseEvents = true
+    }
+
+    // MARK: - Right-Click Context Menu
+
+    func showContextMenu(at location: NSPoint) {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+
+        let settingsItem = NSMenuItem(
+            title: "NotchSnap Settings\u{2026}",
+            action: #selector(AppDelegate.openSettingsAction),
+            keyEquivalent: ","
+        )
+        settingsItem.keyEquivalentModifierMask = .command
+        settingsItem.target = NSApp.delegate
+        settingsItem.isEnabled = true
+        menu.addItem(settingsItem)
+
+        menu.addItem(.separator())
+
+        let quitItem = NSMenuItem(
+            title: "Quit NotchSnap",
+            action: #selector(NSApplication.terminate(_:)),
+            keyEquivalent: "q"
+        )
+        quitItem.keyEquivalentModifierMask = .command
+        quitItem.isEnabled = true
+        menu.addItem(quitItem)
+
+        // Ensure key status for context menu
+        guard let notchPanel = panel as? NotchPanel,
+              let contentView = notchPanel.contentView else { return }
+
+        let wasAllowed = notchPanel.allowKey
+        notchPanel.allowKey = true
+        notchPanel.makeKeyAndOrderFront(nil)
+
+        NSMenu.popUpContextMenu(menu, with: NSEvent.mouseEvent(
+            with: .rightMouseDown,
+            location: location,
+            modifierFlags: [],
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: notchPanel.windowNumber,
+            context: nil,
+            eventNumber: 0,
+            clickCount: 1,
+            pressure: 0
+        )!, for: contentView)
+
+        // Restore previous key status after menu closes
+        notchPanel.allowKey = wasAllowed
+        if !wasAllowed { notchPanel.resignKey() }
+    }
+
+    // MARK: - Mouse Tracking
+
+    private func startMouseTracking() {
+        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] event in
+            Task { @MainActor in
+                self?.handleMouseMoved(NSEvent.mouseLocation, timestamp: event.timestamp)
+            }
+        }
+
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown]) { [weak self] event in
+            Task { @MainActor in
+                if event.type == .leftMouseDown {
+                    self?.handleClick()
+                } else if event.type == .rightMouseDown {
+                    self?.handleRightClick(event)
+                } else {
+                    self?.handleMouseMoved(NSEvent.mouseLocation, timestamp: event.timestamp)
+                }
+            }
+            return event
+        }
+    }
+
+    private func handleMouseMoved(_ location: NSPoint, timestamp: TimeInterval) {
+        guard let screen = NSScreen.main else { return }
+        let settings = AppState.shared.settings
+        guard settings.notchTrigger == .hover else { return }
+
+        // Calculate mouse velocity
+        let distance = hypot(location.x - lastMousePoint.x, location.y - lastMousePoint.y)
+        let elapsed = timestamp - lastMouseTime
+        lastMouseSpeed = elapsed > 0 ? distance / elapsed : 0
+        lastMousePoint = location
+        lastMouseTime = timestamp
+
+        let inZone = isInTriggerZone(location, screen: screen)
+
+        if inZone && lastMouseSpeed < maxTriggerSpeed {
+            if state == .idle {
+                triggerHover()
+            } else if state == .captureNotification {
+                // Mouse approached during notification — interrupt and expand
+                notificationTask?.cancel()
+                notificationContentVisible = false
+                triggerExpand()
+            }
+            cancelCollapse()
+        } else if !inZone && state == .expanded {
+            scheduleCollapseIfOutsidePanel(location, screen: screen)
+        } else if !inZone && state == .hovering {
+            hoverTask?.cancel()
+            withAnimation(NotchAnimation.collapse) {
+                state = .idle
+            }
+            panel?.ignoresMouseEvents = true
+        } else if !inZone && state == .idle {
+            hoverTask?.cancel()
+        }
+    }
+
+    private func handleClick() {
+        switch state {
+        case .idle, .hovering:
+            if isInTriggerZone(NSEvent.mouseLocation, screen: NSScreen.main!) {
+                triggerExpand()
+            }
+        case .captureNotification:
+            if isInTriggerZone(NSEvent.mouseLocation, screen: NSScreen.main!) {
+                // Interrupt notification → expand to full gallery
+                notificationTask?.cancel()
+                notificationContentVisible = false
+                triggerExpand()
+            }
+        case .expanded:
+            break
+        }
+    }
+
+    private func handleRightClick(_ event: NSEvent) {
+        guard isInTriggerZone(NSEvent.mouseLocation, screen: NSScreen.main!) else { return }
+        showContextMenu(at: event.locationInWindow)
+    }
+
+    private func scheduleCollapseIfOutsidePanel(_ point: NSPoint, screen: NSScreen) {
+        let panelRect = expandedPanelRect(screen: screen)
+        let paddedRect = panelRect.insetBy(dx: -30, dy: -30)
+        if !paddedRect.contains(point) {
+            triggerCollapse()
+        }
+    }
+
+    // MARK: - Trigger Zone
+
+    private func isInTriggerZone(_ point: NSPoint, screen: NSScreen) -> Bool {
+        let notchRect = calculateNotchRect(screen: screen)
+
+        let menuBarHeight = screen.safeAreaInsets.top > 0
+            ? screen.safeAreaInsets.top
+            : NSStatusBar.system.thickness
+        let triggerYMin = screen.frame.maxY - menuBarHeight
+        let triggerYMax = screen.frame.maxY
+
+        let triggerXMin = notchRect.minX - 20
+        let triggerXMax = notchRect.maxX + 20
+
+        return point.x >= triggerXMin
+            && point.x <= triggerXMax
+            && point.y >= triggerYMin
+            && point.y <= triggerYMax
+    }
+
+    // MARK: - Auto-Collapse Timer
+
+    private func startAutoCollapseTimer() {
+        autoCollapseTimer?.invalidate()
+        guard let seconds = AppState.shared.settings.autoCollapseSeconds else { return }
+
+        autoCollapseTimer = Timer.scheduledTimer(withTimeInterval: Double(seconds), repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                self?.collapse()
+            }
+        }
+    }
+
+    // MARK: - Geometry Calculations
+
+    private func calculateNotchSize(screen: NSScreen) -> CGSize {
+        let computedMenuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
+        let menuBarHeight = computedMenuBarHeight > 10 ? computedMenuBarHeight : NSStatusBar.system.thickness
+        print("[NotchController] menuBarHeight=\(menuBarHeight), NSStatusBar=\(NSStatusBar.system.thickness), computed=\(computedMenuBarHeight)")
+
+        if screen.safeAreaInsets.top > 0 {
+            let leftArea = screen.auxiliaryTopLeftArea ?? .zero
+            let rightArea = screen.auxiliaryTopRightArea ?? .zero
+            let width = screen.frame.width - leftArea.width - rightArea.width
+            return CGSize(width: width, height: menuBarHeight)
+        } else {
+            return CGSize(width: 180, height: menuBarHeight)
+        }
+    }
+
+    private func calculateNotchRect(screen: NSScreen) -> NSRect {
+        if hasPhysicalNotch {
+            let leftArea = screen.auxiliaryTopLeftArea ?? .zero
+            let notchX = screen.frame.origin.x + leftArea.width
+            let notchY = screen.frame.maxY - notchSize.height
+            return NSRect(x: notchX, y: notchY, width: notchSize.width, height: notchSize.height)
+        } else {
+            let x = screen.frame.midX - notchSize.width / 2
+            let y = screen.frame.maxY - notchSize.height
+            return NSRect(x: x, y: y, width: notchSize.width, height: notchSize.height)
+        }
+    }
+
+    private func expandedPanelRect(screen: NSScreen) -> NSRect {
+        let notchRect = calculateNotchRect(screen: screen)
+        return NSRect(
+            x: notchRect.midX - expandedSize.width / 2,
+            y: notchRect.maxY - expandedSize.height,
+            width: expandedSize.width,
+            height: expandedSize.height
+        )
+    }
+
+    private func calculateMaxPanelFrame(screen: NSScreen) -> NSRect {
+        let notchRect = calculateNotchRect(screen: screen)
+        return NSRect(
+            x: notchRect.midX - expandedSize.width / 2,
+            y: screen.frame.maxY - expandedSize.height,
+            width: expandedSize.width,
+            height: expandedSize.height
+        )
+    }
+}
+
+// MARK: - NotchPanel — NSPanel subclass
+//
+// canBecomeKey is dynamic:
+// - true when expanded (needed for drag-and-drop & context menu)
+// - false when idle/hovering (prevents stealing focus from other apps)
+
+class NotchPanel: NSPanel {
+    var allowKey = false
+
+    override var canBecomeKey: Bool { allowKey }
+    override var canBecomeMain: Bool { false }
+}
