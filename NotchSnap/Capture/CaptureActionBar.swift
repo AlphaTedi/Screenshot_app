@@ -36,7 +36,7 @@ struct CaptureActionBar: View {
                 HStack(spacing: 4) {
                     Image(systemName: "square.and.arrow.down")
                         .font(.system(size: 12, weight: .medium))
-                    Text("Salva")
+                    Text("Save")
                         .font(.system(size: 12, weight: .medium))
                     Text("\u{2318}S")
                         .font(.system(size: 10, weight: .regular, design: .monospaced))
@@ -61,7 +61,7 @@ struct CaptureActionBar: View {
                 HStack(spacing: 4) {
                     Image(systemName: "doc.on.doc")
                         .font(.system(size: 12, weight: .medium))
-                    Text("Copia")
+                    Text("Copy")
                         .font(.system(size: 12, weight: .medium))
                     Text("\u{2318}C")
                         .font(.system(size: 10, weight: .regular, design: .monospaced))

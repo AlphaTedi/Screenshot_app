@@ -158,10 +158,10 @@ struct EditorView: View {
         }
 
         let alert = NSAlert()
-        alert.messageText = "Vuoi copiare lo screenshot prima di chiudere?"
-        alert.addButton(withTitle: "Copia e chiudi")
-        alert.addButton(withTitle: "Chiudi senza copiare")
-        alert.addButton(withTitle: "Annulla")
+        alert.messageText = "Copy the screenshot before closing?"
+        alert.addButton(withTitle: "Copy and Close")
+        alert.addButton(withTitle: "Close Without Copying")
+        alert.addButton(withTitle: "Cancel")
 
         switch alert.runModal() {
         case .alertFirstButtonReturn:

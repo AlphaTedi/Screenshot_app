@@ -42,7 +42,7 @@ struct NotchExpandedView: View {
                 .opacity(appeared ? 1.0 : 0.0)
                 .animation(.spring(response: 0.38, dampingFraction: 0.62), value: appeared)
 
-            Text("Nessun contenuto ancora.\nFai uno screenshot o copia qualcosa.")
+            Text("No content yet.\nTake a screenshot or copy something.")
                 .font(.system(size: 11))
                 .foregroundColor(.white.opacity(0.5))
                 .multilineTextAlignment(.center)

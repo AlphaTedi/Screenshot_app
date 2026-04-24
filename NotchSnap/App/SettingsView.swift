@@ -10,7 +10,7 @@ struct SettingsView: View {
         TabView {
             GeneralSettingsView()
                 .tabItem {
-                    Label("Generali", systemImage: "gearshape")
+                    Label("General", systemImage: "gearshape")
                 }
 
             NotchAppearanceSettingsView()
@@ -20,17 +20,17 @@ struct SettingsView: View {
 
             CaptureSettingsView()
                 .tabItem {
-                    Label("Cattura", systemImage: "camera.viewfinder")
+                    Label("Capture", systemImage: "camera.viewfinder")
                 }
 
             ShortcutsSettingsView()
                 .tabItem {
-                    Label("Scorciatoie", systemImage: "keyboard")
+                    Label("Shortcuts", systemImage: "keyboard")
                 }
 
             AboutSettingsView()
                 .tabItem {
-                    Label("Info", systemImage: "info.circle")
+                    Label("About", systemImage: "info.circle")
                 }
         }
         .frame(minWidth: 520, minHeight: 500)
@@ -62,8 +62,8 @@ struct GeneralSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Avvio") {
-                Toggle("Apri al login", isOn: Binding(
+            Section("Startup") {
+                Toggle("Launch at login", isOn: Binding(
                     get: { appState.settings.launchAtLogin },
                     set: { newValue in
                         appState.updateSettings { $0.launchAtLogin = newValue }
@@ -81,7 +81,7 @@ struct GeneralSettingsView: View {
                     }
                 ))
 
-                Toggle("Mostra nel Dock", isOn: Binding(
+                Toggle("Show in Dock", isOn: Binding(
                     get: { appState.settings.showInDock },
                     set: { newValue in
                         appState.updateSettings { $0.showInDock = newValue }
@@ -91,22 +91,22 @@ struct GeneralSettingsView: View {
             }
 
             Section("Feedback") {
-                Toggle("Suono alla cattura", isOn: settingsBinding(appState, \.playSound))
-                Toggle("Effetti sonori interfaccia", isOn: Binding(
+                Toggle("Capture sound", isOn: settingsBinding(appState, \.playSound))
+                Toggle("Interface sound effects", isOn: Binding(
                     get: {
                         UserDefaults.standard.object(forKey: "soundEffectsEnabled") == nil
                         || UserDefaults.standard.bool(forKey: "soundEffectsEnabled")
                     },
                     set: { UserDefaults.standard.set($0, forKey: "soundEffectsEnabled") }
                 ))
-                Toggle("Feedback aptico (trackpad)", isOn: Binding(
+                Toggle("Haptic feedback (trackpad)", isOn: Binding(
                     get: { UserDefaults.standard.bool(forKey: "hapticFeedback") },
                     set: { UserDefaults.standard.set($0, forKey: "hapticFeedback") }
                 ))
             }
 
-            Section("Comportamento") {
-                Toggle("Copia automaticamente in clipboard", isOn: settingsBinding(appState, \.autoCopyToClipboard))
+            Section("Behavior") {
+                Toggle("Automatically copy to clipboard", isOn: settingsBinding(appState, \.autoCopyToClipboard))
             }
         }
         .formStyle(.grouped)
@@ -132,14 +132,14 @@ struct NotchAppearanceSettingsView: View {
                 )
                 .frame(height: 140)
             } header: {
-                Text("Anteprima")
+                Text("Preview")
             }
 
             // GEOMETRY
-            Section("Geometria") {
+            Section("Geometry") {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        Text("Larghezza")
+                        Text("Width")
                         Spacer()
                         Text("\(Int(expandedWidth))pt")
                             .foregroundColor(.secondary)
@@ -150,7 +150,7 @@ struct NotchAppearanceSettingsView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        Text("Altezza")
+                        Text("Height")
                         Spacer()
                         Text("\(Int(expandedHeight))pt")
                             .foregroundColor(.secondary)
@@ -161,7 +161,7 @@ struct NotchAppearanceSettingsView: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack {
-                        Text("Raggio angoli")
+                        Text("Corner radius")
                         Spacer()
                         Text("\(Int(cornerRadius))pt")
                             .foregroundColor(.secondary)
@@ -172,19 +172,19 @@ struct NotchAppearanceSettingsView: View {
             }
 
             // ACTIVATION
-            Section("Attivazione") {
-                Picker("Apri la notch con", selection: settingsBinding(appState, \.notchTrigger)) {
-                    Text("Hover del cursore").tag(NotchTrigger.hover)
+            Section("Activation") {
+                Picker("Open the notch with", selection: settingsBinding(appState, \.notchTrigger)) {
+                    Text("Cursor hover").tag(NotchTrigger.hover)
                     Text("Click").tag(NotchTrigger.click)
-                    Text("Mai (solo menu bar)").tag(NotchTrigger.never)
+                    Text("Never (menu bar only)").tag(NotchTrigger.never)
                 }
 
                 if appState.settings.notchTrigger == .hover {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack {
-                            Text("Delay hover")
+                            Text("Hover delay")
                             Spacer()
-                            Text(appState.settings.hoverDelayMs == 0 ? "Istantaneo" : "\(appState.settings.hoverDelayMs)ms")
+                            Text(appState.settings.hoverDelayMs == 0 ? "Instant" : "\(appState.settings.hoverDelayMs)ms")
                                 .foregroundColor(.secondary)
                                 .monospacedDigit()
                         }
@@ -201,20 +201,20 @@ struct NotchAppearanceSettingsView: View {
             }
 
             // BEHAVIOR
-            Section("Comportamento") {
-                Picker("Chiudi automaticamente dopo", selection: settingsBinding(appState, \.autoCollapseSeconds)) {
-                    Text("3 secondi").tag(Optional(3))
-                    Text("5 secondi").tag(Optional(5))
-                    Text("10 secondi").tag(Optional(10))
-                    Text("Mai").tag(Optional<Int>.none)
+            Section("Behavior") {
+                Picker("Auto-close after", selection: settingsBinding(appState, \.autoCollapseSeconds)) {
+                    Text("3 seconds").tag(Optional(3))
+                    Text("5 seconds").tag(Optional(5))
+                    Text("10 seconds").tag(Optional(10))
+                    Text("Never").tag(Optional<Int>.none)
                 }
 
-                Toggle("Mostra badge contatore", isOn: settingsBinding(appState, \.showBadgeCounter))
+                Toggle("Show counter badge", isOn: settingsBinding(appState, \.showBadgeCounter))
             }
 
             // RESET
             Section {
-                Button("Ripristina valori predefiniti") {
+                Button("Restore defaults") {
                     cornerRadius = 10
                     expandedWidth = 600
                     expandedHeight = 180
@@ -239,19 +239,19 @@ struct CaptureSettingsView: View {
 
     var body: some View {
         Form {
-            Section("Cattura") {
-                Picker("Modalita' predefinita", selection: settingsBinding(appState, \.defaultCaptureMode)) {
+            Section("Capture") {
+                Picker("Default mode", selection: settingsBinding(appState, \.defaultCaptureMode)) {
                     Text("Area").tag(CaptureMode.area)
-                    Text("Finestra").tag(CaptureMode.window)
-                    Text("Schermo intero").tag(CaptureMode.fullscreen)
+                    Text("Window").tag(CaptureMode.window)
+                    Text("Full screen").tag(CaptureMode.fullscreen)
                 }
 
-                Toggle("Suono screenshot", isOn: settingsBinding(appState, \.playSound))
-                Toggle("Ombra finestra", isOn: settingsBinding(appState, \.windowShadow))
+                Toggle("Screenshot sound", isOn: settingsBinding(appState, \.playSound))
+                Toggle("Window shadow", isOn: settingsBinding(appState, \.windowShadow))
             }
 
-            Section("Salvataggio") {
-                Toggle("Salva automaticamente su file", isOn: settingsBinding(appState, \.autoSaveFile))
+            Section("Saving") {
+                Toggle("Automatically save to file", isOn: settingsBinding(appState, \.autoSaveFile))
 
                 if appState.settings.autoSaveFile {
                     HStack {
@@ -260,18 +260,18 @@ struct CaptureSettingsView: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                         Spacer()
-                        Button("Scegli\u{2026}") { chooseSaveDirectory() }
+                        Button("Choose\u{2026}") { chooseSaveDirectory() }
                     }
                 }
 
-                Picker("Formato file", selection: settingsBinding(appState, \.fileFormat)) {
+                Picker("File format", selection: settingsBinding(appState, \.fileFormat)) {
                     Text("PNG").tag(FileFormat.png)
                     Text("JPEG").tag(FileFormat.jpeg)
                 }
 
                 if appState.settings.fileFormat == .jpeg {
                     HStack {
-                        Text("Qualita' JPEG:")
+                        Text("JPEG quality:")
                         Slider(value: settingsBinding(appState, \.jpegQuality), in: 0.1...1.0, step: 0.05)
                         Text("\(Int(appState.settings.jpegQuality * 100))%")
                             .frame(width: 40)
@@ -279,15 +279,15 @@ struct CaptureSettingsView: View {
                 }
             }
 
-            Section("Sessione") {
-                Picker("Screenshot in memoria", selection: settingsBinding(appState, \.maxSessionScreenshots)) {
+            Section("Session") {
+                Picker("Screenshots in memory", selection: settingsBinding(appState, \.maxSessionScreenshots)) {
                     Text("5").tag(5)
                     Text("10").tag(10)
                     Text("20").tag(20)
                     Text("50").tag(50)
                 }
 
-                Toggle("Cancella sessione all'avvio", isOn: settingsBinding(appState, \.clearSessionOnLaunch))
+                Toggle("Clear session on launch", isOn: settingsBinding(appState, \.clearSessionOnLaunch))
             }
         }
         .formStyle(.grouped)
@@ -309,21 +309,21 @@ struct CaptureSettingsView: View {
 struct ShortcutsSettingsView: View {
     var body: some View {
         Form {
-            Section("Scorciatoie attive") {
-                ShortcutRow(label: "Cattura area", keys: "\u{2303}\u{21E7}4")
-                ShortcutRow(label: "Cattura finestra", keys: "\u{2303}\u{21E7}2")
-                ShortcutRow(label: "Cattura schermo", keys: "\u{2303}\u{21E7}3")
-                ShortcutRow(label: "Cattura area + Editor", keys: "\u{2303}\u{21E7}5")
-                ShortcutRow(label: "Ripeti ultima cattura", keys: "\u{2303}\u{21E7}Spazio")
+            Section("Active shortcuts") {
+                ShortcutRow(label: "Capture area", keys: "\u{2303}\u{21E7}4")
+                ShortcutRow(label: "Capture window", keys: "\u{2303}\u{21E7}2")
+                ShortcutRow(label: "Capture screen", keys: "\u{2303}\u{21E7}3")
+                ShortcutRow(label: "Capture area + Editor", keys: "\u{2303}\u{21E7}5")
+                ShortcutRow(label: "Repeat last capture", keys: "\u{2303}\u{21E7}Space")
             }
 
-            Section("Generali") {
-                ShortcutRow(label: "Apri Settings", keys: "\u{2318} ,")
-                ShortcutRow(label: "Chiudi app", keys: "\u{2318} Q")
+            Section("General") {
+                ShortcutRow(label: "Open Settings", keys: "\u{2318} ,")
+                ShortcutRow(label: "Quit app", keys: "\u{2318} Q")
             }
 
             Section {
-                Text("Le scorciatoie con \u{2303}\u{21E7} (Control+Shift) funzionano globalmente da qualsiasi app.")
+                Text("Shortcuts using \u{2303}\u{21E7} (Control+Shift) work globally from any app.")
                     .foregroundColor(.secondary)
                     .font(.footnote)
             }
@@ -369,7 +369,7 @@ struct AboutSettingsView: View {
                 .font(.title3)
                 .foregroundColor(.secondary)
 
-            Text("Screenshot tool che vive nella notch del tuo Mac.")
+            Text("Screenshot tool that lives in your Mac's notch.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

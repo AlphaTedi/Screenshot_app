@@ -58,7 +58,7 @@ struct AnnotationToolbar: View {
                             .frame(width: 30, height: 30)
                     }
                     .buttonStyle(.plain)
-                    .help("Estrai testo (X)")
+                    .help("Extract text (X)")
                 }
             }
 
@@ -88,7 +88,7 @@ struct AnnotationToolbar: View {
                         HStack(spacing: 4) {
                             Image(systemName: "square.and.arrow.down")
                                 .font(.system(size: 11, weight: .medium))
-                            Text("Salva")
+                            Text("Save")
                                 .font(.system(size: 12, weight: .medium))
                                 .lineLimit(1)
                                 .fixedSize()
@@ -117,7 +117,7 @@ struct AnnotationToolbar: View {
                         HStack(spacing: 4) {
                             Image(systemName: "doc.on.doc")
                                 .font(.system(size: 11, weight: .medium))
-                            Text("Copia")
+                            Text("Copy")
                                 .font(.system(size: 12, weight: .medium))
                                 .lineLimit(1)
                                 .fixedSize()

@@ -1,45 +1,45 @@
 # NotchSnap
 
-Un'app macOS che sfrutta il notch dei MacBook per screenshot e funzioni rapide.
+A macOS app that leverages the MacBook notch for screenshots and quick actions.
 
-## Requisiti
+## Requirements
 
-- macOS 13.0 o superiore
-- (Per sviluppo) Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+- macOS 13.0 or later
+- (For development) Xcode 16+, [XcodeGen](https://github.com/yonaskolb/XcodeGen)
 
-## Installazione (utenti)
+## Installation (users)
 
-1. Vai nella sezione [Releases](../../releases) del repository.
-2. Scarica l'ultimo file `NotchSnap.dmg` (o `NotchSnap.zip`).
-3. Apri il `.dmg` e trascina `NotchSnap.app` nella cartella **Applicazioni**.
-4. Alla prima apertura, se macOS mostra "app non verificata":
-   - Tasto destro su `NotchSnap.app` → **Apri** → conferma.
-   - Oppure: Impostazioni di Sistema → Privacy e Sicurezza → **Apri comunque**.
+1. Go to the [Releases](../../releases) section of this repository.
+2. Download the latest `NotchSnap.zip` (or `.dmg`).
+3. Unzip and drag `NotchSnap.app` into your **Applications** folder.
+4. On first launch, if macOS shows "app is not verified":
+   - Right-click `NotchSnap.app` → **Open** → confirm.
+   - Or: System Settings → Privacy & Security → **Open Anyway**.
 
-> L'app non è firmata con Apple Developer ID, quindi macOS mostra un avviso la prima volta. Questo è normale.
+> The app is not signed with an Apple Developer ID, so macOS will show a warning on first launch. This is expected.
 
-## Build dal codice
+## Build from source
 
 ```bash
-# Genera il progetto Xcode (se modifichi project.yml)
+# Generate the Xcode project (if you modified project.yml)
 xcodegen generate
 
-# Apri in Xcode
+# Open in Xcode
 open NotchSnap.xcodeproj
 
-# Oppure build da command line
+# Or build from the command line
 xcodebuild -project NotchSnap.xcodeproj -scheme NotchSnap -configuration Release
 ```
 
-## Release automatiche
+## Automated releases
 
-Ogni push di un tag `v*` (es. `v1.0.0`) attiva GitHub Actions che builda l'app e pubblica una Release con il `.zip` pronto da scaricare.
+Pushing a tag matching `v*` (e.g. `v1.0.0`) triggers a GitHub Actions workflow that builds the app and publishes a Release with a ready-to-download `.zip`.
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-## Licenza
+## License
 
 MIT

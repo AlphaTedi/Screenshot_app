@@ -114,7 +114,7 @@ struct OnboardingWelcomeView: View {
                 .offset(y: textAppeared ? 0 : 12)
                 .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.2), value: textAppeared)
 
-            Text("I tuoi screenshot, sempre a portata di notch.")
+            Text("Your screenshots, always within reach of the notch.")
                 .font(.system(size: 16))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -138,7 +138,7 @@ struct OnboardingWelcomeView: View {
             // CTA button
             Button(action: onAdvance) {
                 HStack {
-                    Text("Inizia")
+                    Text("Get Started")
                         .fontWeight(.semibold)
                     Image(systemName: "arrow.right")
                 }
@@ -171,11 +171,11 @@ struct OnboardingPermissionsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Text("Configura NotchSnap")
+            Text("Set up NotchSnap")
                 .font(.system(size: 28, weight: .bold, design: .rounded))
                 .padding(.top, 40)
 
-            Text("Concedi i permessi per usare tutte le funzionalita'.")
+            Text("Grant permissions to use all features.")
                 .font(.system(size: 15))
                 .foregroundStyle(.secondary)
                 .padding(.top, 8)
@@ -188,8 +188,8 @@ struct OnboardingPermissionsView: View {
                 PermissionCard(
                     icon: "camera.viewfinder",
                     iconColor: .blue,
-                    title: "Registrazione schermo",
-                    description: "Per catturare screenshot. Non registriamo ne' salviamo mai il tuo schermo.",
+                    title: "Screen Recording",
+                    description: "Needed to capture screenshots. We never record or save your screen.",
                     isGranted: screenRecordingGranted,
                     onGrant: {
                         NSWorkspace.shared.open(
@@ -205,7 +205,7 @@ struct OnboardingPermissionsView: View {
             // Footer buttons
             VStack(spacing: 10) {
                 Button(action: onComplete) {
-                    Text(screenRecordingGranted ? "Inizia a usare NotchSnap \u{2192}" : "Inizia \u{2192}")
+                    Text(screenRecordingGranted ? "Start using NotchSnap \u{2192}" : "Get Started \u{2192}")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -216,7 +216,7 @@ struct OnboardingPermissionsView: View {
                 .padding(.horizontal, 48)
 
                 if !screenRecordingGranted {
-                    Button("Salta per ora") { onComplete() }
+                    Button("Skip for now") { onComplete() }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
                         .font(.system(size: 13))
@@ -291,7 +291,7 @@ struct PermissionCard: View {
                     .font(.system(size: 22))
                     .transition(.scale.combined(with: .opacity))
             } else {
-                Button("Concedi") { onGrant() }
+                Button("Grant") { onGrant() }
                     .buttonStyle(.bordered)
                     .controlSize(.small)
             }
@@ -342,10 +342,10 @@ struct NotchMiniPreview: View {
 
     var phaseLabel: String {
         switch phase {
-        case 0: return "Premi \u{2303}\u{21E7}4 per catturare"
-        case 1: return "Screenshot catturato"
-        case 2: return "Appare nella notch"
-        case 3: return "Trascina ovunque"
+        case 0: return "Press \u{2303}\u{21E7}4 to capture"
+        case 1: return "Screenshot captured"
+        case 2: return "It appears in the notch"
+        case 3: return "Drag it anywhere"
         default: return ""
         }
     }

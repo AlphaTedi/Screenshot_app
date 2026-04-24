@@ -321,7 +321,7 @@ class AnnotationCanvasNSView: NSView {
         tf.backgroundColor = editorState.currentColor.withAlphaComponent(0.1)
         tf.isBordered = false
         tf.focusRingType = .none
-        tf.placeholderString = "Scrivi testo..."
+        tf.placeholderString = "Type text..."
         tf.target = self
         tf.action = #selector(textFieldCommitted(_:))
         tf.tag = Int(imagePoint.x) // store position (simplified)

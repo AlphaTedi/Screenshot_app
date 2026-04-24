@@ -12,7 +12,7 @@ extension Notification.Name {
 //
 // Reusable by both the inline capture (AreaSelector Phase 2) and the editor.
 // Displays recognized text blocks as selectable blue rectangles over the image.
-// Includes its own toolbar pill (Seleziona tutto / Copia / Esci).
+// Includes its own toolbar pill (Select All / Copy / Exit).
 
 struct TextExtractionView: View {
     let image: CGImage
@@ -70,7 +70,7 @@ struct TextExtractionView: View {
     private var ocrToolbar: some View {
         HStack(spacing: 12) {
             Button(action: toggleSelectAll) {
-                Text(allSelected ? "Deseleziona" : "Seleziona tutto")
+                Text(allSelected ? "Deselect" : "Select All")
                     .font(.system(size: 12, weight: .medium))
             }
             .buttonStyle(.plain)
@@ -82,7 +82,7 @@ struct TextExtractionView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "doc.on.doc")
                         .font(.system(size: 11, weight: .semibold))
-                    Text("Copia")
+                    Text("Copy")
                         .font(.system(size: 12, weight: .medium))
                 }
             }
@@ -166,7 +166,7 @@ struct TextExtractionView: View {
             ProgressView()
                 .scaleEffect(0.7)
                 .progressViewStyle(.circular)
-            Text("Analisi testo...")
+            Text("Analyzing text...")
                 .font(.system(size: 12))
                 .foregroundStyle(.secondary)
         }
@@ -176,7 +176,7 @@ struct TextExtractionView: View {
     }
 
     private var noTextOverlay: some View {
-        Text("Nessun testo riconosciuto")
+        Text("No text recognized")
             .font(.system(size: 12, weight: .medium))
             .foregroundStyle(.secondary)
             .padding(.horizontal, 16)

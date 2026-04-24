@@ -40,7 +40,7 @@ struct ClipboardTile: View {
 
                 // Quick Copy button
                 Button(action: quickCopy) {
-                    Text(justCopied ? "\u{2713} Copiato" : "Quick Copy")
+                    Text(justCopied ? "\u{2713} Copied" : "Quick Copy")
                         .font(.system(size: 10, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .frame(height: 22)

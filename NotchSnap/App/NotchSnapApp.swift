@@ -168,15 +168,15 @@ struct MenuBarView: View {
 
             Divider()
 
-            Button("Cattura Area ⌃⇧4") {
+            Button("Capture Area ⌃⇧4") {
                 Task { await CaptureManager.shared.startCapture(mode: .area) }
             }
 
-            Button("Cattura Finestra ⌃⇧2") {
+            Button("Capture Window ⌃⇧2") {
                 Task { await CaptureManager.shared.startCapture(mode: .window) }
             }
 
-            Button("Cattura Schermo ⌃⇧3") {
+            Button("Capture Screen ⌃⇧3") {
                 Task { await CaptureManager.shared.startCapture(mode: .fullscreen) }
             }
 
@@ -186,19 +186,19 @@ struct MenuBarView: View {
 
             Divider()
 
-            Text("\(appState.screenshots.count) screenshot in sessione")
+            Text("\(appState.screenshots.count) screenshots in session")
                 .font(.caption)
                 .foregroundColor(.secondary)
 
             if !appState.screenshots.isEmpty {
-                Button("Cancella sessione") {
+                Button("Clear session") {
                     appState.clearSession()
                 }
             }
 
             Divider()
 
-            Button("Impostazioni…") {
+            Button("Settings…") {
                 NotificationCenter.default.post(name: .openSettingsRequest, object: nil)
             }
             .keyboardShortcut(",", modifiers: .command)
