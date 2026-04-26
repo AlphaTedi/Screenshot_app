@@ -1,39 +1,47 @@
 import SwiftUI
 import ScreenCaptureKit
 
-// MARK: - OnboardingFlowView — 2-step onboarding (Welcome → Permissions)
+// MARK: - OnboardingFlowView — 3-step onboarding (Welcome → Permissions → All Set)
 
 struct OnboardingFlowView: View {
     @State private var currentStep = 0
     @AppStorage("onboardingVersion") var onboardingVersion: Int = 0
 
+    private let totalSteps = 3
+
     var body: some View {
         ZStack {
-            VisualEffectBackground()
+            // Window-wide frosted glass — wallpaper bleeds through with depth.
+            FrostedGlassBackground()
                 .ignoresSafeArea()
 
             Group {
-                if currentStep == 0 {
+                switch currentStep {
+                case 0:
                     OnboardingWelcomeView(onAdvance: advanceStep)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
-                } else {
-                    OnboardingPermissionsView(onComplete: completeOnboarding)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .trailing).combined(with: .opacity),
-                            removal: .move(edge: .leading).combined(with: .opacity)
-                        ))
+                        .transition(stepTransition)
+                case 1:
+                    OnboardingPermissionsView(onContinue: advanceStep)
+                        .transition(stepTransition)
+                default:
+                    OnboardingAllSetView(onFinish: completeOnboarding)
+                        .transition(stepTransition)
                 }
             }
-            .animation(.spring(response: 0.4, dampingFraction: 0.85), value: currentStep)
+            .animation(.spring(response: 0.45, dampingFraction: 0.85), value: currentStep)
         }
-        .frame(width: 560, height: 480)
+        .frame(width: 600, height: 540)
         .overlay(alignment: .bottom) {
-            StepDotIndicator(current: currentStep, total: 2)
-                .padding(.bottom, 12)
+            StepDotIndicator(current: currentStep, total: totalSteps)
+                .padding(.bottom, 14)
         }
+    }
+
+    private var stepTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: .trailing).combined(with: .opacity),
+            removal:   .move(edge: .leading).combined(with: .opacity)
+        )
     }
 
     func advanceStep() {
@@ -48,6 +56,35 @@ struct OnboardingFlowView: View {
         OnboardingWindowController.dismiss()
         // Warm the capture cache now that permission may have been granted
         CaptureManager.shared.warmContentCache()
+    }
+}
+
+// MARK: - Frosted Glass Background — heavy blur + soft tint, used by onboarding & settings
+
+struct FrostedGlassBackground: View {
+    var body: some View {
+        ZStack {
+            // Layer 1: behind-window blur of the wallpaper
+            VisualEffectBackground(material: .fullScreenUI, blendingMode: .behindWindow)
+
+            // Layer 2: soft tint that picks up the wallpaper hue but pushes it lighter
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.18),
+                    Color.white.opacity(0.04)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            // Layer 3: faint vignette to anchor the floating cards
+            RadialGradient(
+                colors: [Color.clear, Color.black.opacity(0.10)],
+                center: .center,
+                startRadius: 200,
+                endRadius: 700
+            )
+        }
     }
 }
 
@@ -166,7 +203,7 @@ struct OnboardingWelcomeView: View {
 // MARK: - Permissions View (Step 2)
 
 struct OnboardingPermissionsView: View {
-    var onComplete: () -> Void
+    var onContinue: () -> Void
     @State var screenRecordingGranted = false
 
     var body: some View {
@@ -204,8 +241,8 @@ struct OnboardingPermissionsView: View {
 
             // Footer buttons
             VStack(spacing: 10) {
-                Button(action: onComplete) {
-                    Text(screenRecordingGranted ? "Start using NotchSnap \u{2192}" : "Get Started \u{2192}")
+                Button(action: onContinue) {
+                    Text(screenRecordingGranted ? "Continue \u{2192}" : "Continue anyway \u{2192}")
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
@@ -216,7 +253,7 @@ struct OnboardingPermissionsView: View {
                 .padding(.horizontal, 48)
 
                 if !screenRecordingGranted {
-                    Button("Skip for now") { onComplete() }
+                    Button("Skip for now") { onContinue() }
                         .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
                         .font(.system(size: 13))
@@ -297,12 +334,28 @@ struct PermissionCard: View {
             }
         }
         .padding(16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(GlassTile(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(isGranted ? Color.green.opacity(0.4) : Color.primary.opacity(0.08), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(
+                    isGranted ? Color.green.opacity(0.45) : Color.white.opacity(0.10),
+                    lineWidth: 1
+                )
         )
+        .shadow(color: .black.opacity(0.15), radius: 14, y: 6)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isGranted)
+    }
+}
+
+// MARK: - GlassTile — reusable liquid-glass background pane
+
+struct GlassTile: View {
+    var cornerRadius: CGFloat = 14
+
+    var body: some View {
+        // Clean blur — no sheen, no gradient overlay. Just the material.
+        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            .fill(.ultraThinMaterial)
     }
 }
 
@@ -361,6 +414,143 @@ struct NotchMiniPreview: View {
             phase = 0
             startLoop()
         }
+    }
+}
+
+// MARK: - All Set View (Step 3) — How to use NotchSnap
+
+struct OnboardingAllSetView: View {
+    var onFinish: () -> Void
+    @State private var headerAppeared = false
+    @State private var tipsAppeared = false
+    @State private var buttonAppeared = false
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Circle()
+                    .fill(Color.green.opacity(0.18))
+                    .frame(width: 84, height: 84)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 38, weight: .bold))
+                    .foregroundStyle(.green)
+            }
+            .scaleEffect(headerAppeared ? 1.0 : 0.6)
+            .opacity(headerAppeared ? 1 : 0)
+            .animation(.spring(response: 0.55, dampingFraction: 0.6).delay(0.05), value: headerAppeared)
+            .padding(.top, 36)
+
+            Spacer().frame(height: 16)
+
+            Text("You're all set!")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .opacity(headerAppeared ? 1 : 0)
+                .offset(y: headerAppeared ? 0 : 8)
+                .animation(.spring(response: 0.5, dampingFraction: 0.85).delay(0.18), value: headerAppeared)
+
+            Text("Here's how to make the most of NotchSnap.")
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+                .opacity(headerAppeared ? 1 : 0)
+                .animation(.easeOut(duration: 0.3).delay(0.28), value: headerAppeared)
+
+            Spacer().frame(height: 22)
+
+            VStack(spacing: 10) {
+                AllSetTip(icon: "selection.pin.in.out", iconTint: .blue,
+                          title: "Capture an area",
+                          detail: "Press \u{2303}\u{21E7}4 anywhere on macOS.",
+                          shortcut: "\u{2303}\u{21E7}4")
+                AllSetTip(icon: "rectangle.dashed.badge.record", iconTint: .purple,
+                          title: "Capture & edit",
+                          detail: "Open the editor with annotations & OCR.",
+                          shortcut: "\u{2303}\u{21E7}5")
+                AllSetTip(icon: "display", iconTint: .orange,
+                          title: "Full screen",
+                          detail: "Capture the entire display in one shot.",
+                          shortcut: "\u{2303}\u{21E7}3")
+                AllSetTip(icon: "macbook", iconTint: .pink,
+                          title: "Reach the notch",
+                          detail: "Hover the notch to browse, drag thumbnails out, or press Space to Quick Look.",
+                          shortcut: nil)
+            }
+            .padding(.horizontal, 32)
+            .opacity(tipsAppeared ? 1 : 0)
+            .offset(y: tipsAppeared ? 0 : 14)
+            .animation(.spring(response: 0.5, dampingFraction: 0.85).delay(0.35), value: tipsAppeared)
+
+            Spacer()
+
+            Button(action: onFinish) {
+                Text("Start using NotchSnap")
+                    .fontWeight(.semibold)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .keyboardShortcut(.return, modifiers: [])
+            .padding(.horizontal, 48)
+            .opacity(buttonAppeared ? 1 : 0)
+            .offset(y: buttonAppeared ? 0 : 8)
+            .animation(.spring(response: 0.4, dampingFraction: 0.85).delay(0.55), value: buttonAppeared)
+            .padding(.bottom, 40)
+        }
+        .onAppear {
+            headerAppeared = true
+            tipsAppeared = true
+            buttonAppeared = true
+        }
+    }
+}
+
+private struct AllSetTip: View {
+    let icon: String
+    let iconTint: Color
+    let title: String
+    let detail: String
+    let shortcut: String?
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(iconTint.opacity(0.18))
+                    .frame(width: 36, height: 36)
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(iconTint)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 13, weight: .semibold))
+                Text(detail).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+
+            Spacer()
+
+            if let shortcut {
+                Text(shortcut)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .fill(Color.white.opacity(0.18))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6, style: .continuous)
+                            .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
+                    )
+            }
+        }
+        .padding(12)
+        .background(GlassTile(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        )
     }
 }
 

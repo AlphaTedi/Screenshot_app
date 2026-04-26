@@ -92,70 +92,30 @@ struct NotchSnapApp: App {
         // Menu bar icon removed — actions are available via keyboard shortcuts
         // and the notch UI, so the status-bar badge was redundant.
 
-        // Settings window
-        Settings {
-            SettingsView()
-                .environmentObject(appState)
-        }
+        // NOTE: We intentionally do NOT use SwiftUI's `Settings { }` scene
+        // here. That scene wraps our SettingsView in an AppKit-managed window
+        // with its own title bar and outer corner mask — which fought our
+        // custom chrome and caused visible "double rounded corners".
+        // SettingsWindowController hosts SettingsView in a fully custom
+        // NSWindow instead.
     }
 }
 
 // MARK: - HiddenContextView — Receives notification and opens Settings
 
-@available(macOS 14.0, *)
-struct HiddenContextView14: View {
-    @Environment(\.openSettings) private var openSettings
-
-    var body: some View {
-        Color.clear
-            .onReceive(NotificationCenter.default.publisher(for: .openSettingsRequest)) { _ in
-                Task { @MainActor in
-                    NSApp.setActivationPolicy(.regular)
-                    try? await Task.sleep(for: .milliseconds(100))
-                    NSApp.activate(ignoringOtherApps: true)
-                    openSettings()
-                    try? await Task.sleep(for: .milliseconds(200))
-                    NSApp.windows.first { $0.title.contains("Settings") || $0.title.contains("Preferences") }?
-                        .makeKeyAndOrderFront(nil)
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .settingsWindowClosed)) { _ in
-                if !AppState.shared.settings.showInDock {
-                    NSApp.setActivationPolicy(.accessory)
-                }
-            }
-    }
-}
-
-struct HiddenContextView13: View {
-    var body: some View {
-        Color.clear
-            .onReceive(NotificationCenter.default.publisher(for: .openSettingsRequest)) { _ in
-                Task { @MainActor in
-                    NSApp.setActivationPolicy(.regular)
-                    try? await Task.sleep(for: .milliseconds(100))
-                    NSApp.activate(ignoringOtherApps: true)
-                    NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-                    try? await Task.sleep(for: .milliseconds(200))
-                    NSApp.windows.first { $0.title.contains("Settings") || $0.title.contains("Preferences") }?
-                        .makeKeyAndOrderFront(nil)
-                }
-            }
-            .onReceive(NotificationCenter.default.publisher(for: .settingsWindowClosed)) { _ in
-                if !AppState.shared.settings.showInDock {
-                    NSApp.setActivationPolicy(.accessory)
-                }
-            }
-    }
-}
-
 struct HiddenContextView: View {
     var body: some View {
-        if #available(macOS 14.0, *) {
-            HiddenContextView14()
-        } else {
-            HiddenContextView13()
-        }
+        Color.clear
+            .onReceive(NotificationCenter.default.publisher(for: .openSettingsRequest)) { _ in
+                Task { @MainActor in
+                    SettingsWindowController.show()
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .settingsWindowClosed)) { _ in
+                if !AppState.shared.settings.showInDock {
+                    NSApp.setActivationPolicy(.accessory)
+                }
+            }
     }
 }
 

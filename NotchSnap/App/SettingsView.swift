@@ -12,12 +12,23 @@ struct SettingsView: View {
     @State private var selection: SettingsSection = .general
 
     var body: some View {
-        HStack(spacing: 0) {
+        // iOS 26-style: two distinct floating glass panels with a gap
+        // between them. The window itself is transparent, so each panel
+        // casts its own shadow over the wallpaper.
+        HStack(spacing: 10) {
+
+            // LEFT PANEL — sidebar. Traffic lights live INSIDE this panel
+            // (positioned by SettingsWindowController on every layout).
             SettingsSidebar(selection: $selection)
-                .frame(width: 196)
+                .frame(width: 220)
+                .background(GlassTile(cornerRadius: 20))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                )
+                .shadow(color: .black.opacity(0.25), radius: 22, y: 10)
 
-            Divider().opacity(0.5)
-
+            // RIGHT PANEL — content
             ScrollView {
                 Group {
                     switch selection {
@@ -33,9 +44,16 @@ struct SettingsView: View {
                 .padding(28)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .background(Color(nsColor: .windowBackgroundColor))
+            .scrollContentBackground(.hidden)
+            .background(GlassTile(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.25), radius: 22, y: 10)
         }
-        .frame(width: 820, height: 580)
+        .padding(10)
+        .frame(width: 900, height: 640)
         .environmentObject(appState)
         .onDisappear {
             NotificationCenter.default.post(name: .settingsWindowClosed, object: nil)
@@ -77,25 +95,44 @@ private struct SettingsSidebar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
+            // Top padding leaves room for the traffic lights.
             Text("Settings")
                 .font(.system(size: 17, weight: .semibold))
                 .padding(.horizontal, 16)
-                .padding(.top, 18)
+                .padding(.top, 44)
                 .padding(.bottom, 14)
 
-            VStack(spacing: 2) {
+            VStack(spacing: 3) {
                 ForEach(SettingsSection.allCases) { section in
                     SidebarRow(section: section, isActive: selection == section) {
                         selection = section
                     }
                 }
             }
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
 
             Spacer()
         }
         .frame(maxHeight: .infinity)
-        .background(Color(nsColor: .underPageBackgroundColor).opacity(0.4))
+        // PURE TINT OVERLAY — no NSVisualEffectView of its own, so the blur
+        // beneath it is the same single sheet that fills the whole window.
+        // This kills the visible material seam at the sidebar boundary.
+        .background(
+            LinearGradient(
+                colors: [Color.white.opacity(0.06), Color.white.opacity(0.02)],
+                startPoint: .top, endPoint: .bottom
+            )
+        )
+        .overlay(
+            // Hairline right-edge separator — a single 1px line that runs
+            // edge-to-edge (top of window to bottom), replacing the old Divider.
+            Rectangle()
+                .fill(Color.white.opacity(0.10))
+                .frame(width: 1)
+                .frame(maxHeight: .infinity)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .allowsHitTesting(false)
+        )
     }
 }
 
@@ -149,14 +186,12 @@ private struct SettingsSection_Card<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
+        .background(GlassTile(cornerRadius: 16))
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
         )
+        .shadow(color: .black.opacity(0.12), radius: 16, y: 6)
     }
 }
 

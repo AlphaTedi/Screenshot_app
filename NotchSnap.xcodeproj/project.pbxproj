@@ -14,6 +14,7 @@
 		0D99CA6FF0A3543AE50C6B61 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A32063A8096DCB7171E34409 /* OnboardingView.swift */; };
 		0F663776CDD3D605C249FA70 /* AnnotationModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C8C36D1B4598D827B5BD40 /* AnnotationModel.swift */; };
 		11223344556677889900AABB /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2233445566778899AABB0011 /* OnboardingWindowController.swift */; };
+		AABBCCDD11223344EEFF5566 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCCDDEE22334455FF667700 /* SettingsWindowController.swift */; };
 		1F1C19FC2912D0907E997C14 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1B783B764932999A1FEF0B /* SettingsView.swift */; };
 		26504C0E30844C5DE4A714D0 /* ScreenshotThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E508D99C46879A8DA66334DC /* ScreenshotThumbnail.swift */; };
 		27166015FCAE31F70531F06E /* DraggableThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6572154902DB2B43B66642FD /* DraggableThumbnail.swift */; };
@@ -79,6 +80,7 @@
 		1B63530D4E04AB5C54526B71 /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		1D1573CE4ECF92AE73C92E80 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		2233445566778899AABB0011 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowController.swift; sourceTree = "<group>"; };
+		BBCCDDEE22334455FF667700 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		22ACC55133418148325C1F8B /* ScreenCaptureKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ScreenCaptureKit.framework; path = System/Library/Frameworks/ScreenCaptureKit.framework; sourceTree = SDKROOT; };
 		2D156E7E67743484CA15E540 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		2F1B783B764932999A1FEF0B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -295,6 +297,7 @@
 				DD44EE55FF66AA11BB22CC33 /* NotchLivePreview.swift */,
 				FF66AA11BB22CC33DD44EE55 /* SoundPlayer.swift */,
 				2233445566778899AABB0011 /* OnboardingWindowController.swift */,
+				BBCCDDEE22334455FF667700 /* SettingsWindowController.swift */,
 				A1B2C3D4E5F60002A2B3C4D5 /* ClipboardMonitor.swift */,
 				A1B2C3D4E5F60004A2B3C4D5 /* SoundManager.swift */,
 			);
@@ -444,6 +447,7 @@
 				CC33DD44EE55FF66AA11BB22 /* NotchLivePreview.swift in Sources */,
 				EE55FF66AA11BB22CC33DD44 /* SoundPlayer.swift in Sources */,
 				11223344556677889900AABB /* OnboardingWindowController.swift in Sources */,
+				AABBCCDD11223344EEFF5566 /* SettingsWindowController.swift in Sources */,
 				B2C3D4E5F6A10001C3D4E5F6 /* ClipboardItem.swift in Sources */,
 				B2C3D4E5F6A10002C3D4E5F6 /* ClipboardMonitor.swift in Sources */,
 				B2C3D4E5F6A10003C3D4E5F6 /* ClipboardTile.swift in Sources */,
