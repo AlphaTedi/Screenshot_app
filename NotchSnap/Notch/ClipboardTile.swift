@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ClipboardTile: View {
     let item: ClipboardItem
+    @EnvironmentObject var appState: AppState
     @State private var isHovered = false
     @State private var justCopied = false
 
@@ -64,7 +65,14 @@ struct ClipboardTile: View {
             y: isHovered ? 4 : 2
         )
         .animation(.spring(duration: 0.2, bounce: 0.4), value: isHovered)
-        .onHover { isHovered = $0 }
+        .onHover { hovering in
+            isHovered = hovering
+            if hovering {
+                appState.hoveredQuickLookItem = .clipboard(item)
+            } else if case .clipboard(let c) = appState.hoveredQuickLookItem, c.id == item.id {
+                appState.hoveredQuickLookItem = nil
+            }
+        }
     }
 
     // MARK: - Type-Specific Preview

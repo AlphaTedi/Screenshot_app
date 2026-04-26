@@ -137,11 +137,17 @@ struct NotchShapeView: View {
     }
 
     private var bottomCornerRadius: CGFloat {
+        // Scale with height so taller presets (Wide / Extra Large) keep a
+        // visibly rounded silhouette instead of looking like a flat slab.
+        // Cap at 28pt so tiny notches don't get over-rounded.
+        let base = CGFloat(userCornerRadius)
+        let h = expandedSize.height
+        let scaled = max(base, min(28, h * 0.13))
         switch state {
-        case .idle:                 return CGFloat(userCornerRadius)
-        case .hovering:             return CGFloat(userCornerRadius) + 2
-        case .expanded:             return CGFloat(userCornerRadius) + 8
-        case .captureNotification:  return CGFloat(userCornerRadius)
+        case .idle:                 return base
+        case .hovering:             return base + 2
+        case .expanded:             return scaled + 4
+        case .captureNotification:  return base
         }
     }
 
@@ -203,7 +209,12 @@ struct NotchShapeView: View {
                 }
             }
 
-            // Content gallery — staggered fade-in
+            // Content gallery — staggered fade-in.
+            // The content is hard-clipped to the same NotchShape used for the
+            // black silhouette so thumbnails / tiles can never paint outside
+            // the rounded body (otherwise on taller presets the bottom rows
+            // would visibly stick out past the rounded corners and look like
+            // they had been "cut").
             if state == .expanded {
                 content
                     .frame(width: expandedSize.width - 32, height: expandedSize.height - notchSize.height - 8)
@@ -213,6 +224,14 @@ struct NotchShapeView: View {
                     .animation(
                         reduceMotion ? .easeInOut(duration: 0.1) : NotchAnimation.contentIn,
                         value: contentVisible
+                    )
+                    .frame(width: currentWidth, height: currentHeight, alignment: .top)
+                    .mask(
+                        NotchShape(
+                            bottomRadius: bottomCornerRadius,
+                            filletRadius: currentFilletRadius
+                        )
+                        .frame(width: currentWidth, height: currentHeight)
                     )
             }
 

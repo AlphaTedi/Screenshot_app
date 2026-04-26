@@ -1,43 +1,200 @@
 import SwiftUI
 import ServiceManagement
 
-// MARK: - Settings View — Toolbar-tab style (like NotchNook / CleanShot X)
+// MARK: - Settings View — Modern sidebar layout
+//
+// Adopts a Linear/Untitled-UI style: left rail with sectioned navigation,
+// right pane with rounded "card" sections. Adapts automatically to
+// system appearance + the user's chosen theme override.
 
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
+    @State private var selection: SettingsSection = .general
 
     var body: some View {
-        TabView {
-            GeneralSettingsView()
-                .tabItem {
-                    Label("General", systemImage: "gearshape")
-                }
+        HStack(spacing: 0) {
+            SettingsSidebar(selection: $selection)
+                .frame(width: 196)
 
-            NotchAppearanceSettingsView()
-                .tabItem {
-                    Label("Notch", systemImage: "macbook")
-                }
+            Divider().opacity(0.5)
 
-            CaptureSettingsView()
-                .tabItem {
-                    Label("Capture", systemImage: "camera.viewfinder")
+            ScrollView {
+                Group {
+                    switch selection {
+                    case .general:    GeneralSettingsView()
+                    case .appearance: AppearanceSettingsView()
+                    case .notch:      NotchSettingsView()
+                    case .capture:    CaptureSettingsView()
+                    case .shortcuts:  ShortcutsSettingsView()
+                    case .about:      AboutSettingsView()
+                    }
                 }
-
-            ShortcutsSettingsView()
-                .tabItem {
-                    Label("Shortcuts", systemImage: "keyboard")
-                }
-
-            AboutSettingsView()
-                .tabItem {
-                    Label("About", systemImage: "info.circle")
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(28)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(nsColor: .windowBackgroundColor))
         }
-        .frame(minWidth: 520, minHeight: 500)
+        .frame(width: 820, height: 580)
         .environmentObject(appState)
         .onDisappear {
             NotificationCenter.default.post(name: .settingsWindowClosed, object: nil)
         }
+    }
+}
+
+// MARK: - Sidebar
+
+enum SettingsSection: String, CaseIterable, Identifiable {
+    case general, appearance, notch, capture, shortcuts, about
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .general:    return "General"
+        case .appearance: return "Appearance"
+        case .notch:      return "Notch"
+        case .capture:    return "Capture"
+        case .shortcuts:  return "Shortcuts"
+        case .about:      return "About"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .general:    return "gearshape"
+        case .appearance: return "paintpalette"
+        case .notch:      return "macbook"
+        case .capture:    return "camera.viewfinder"
+        case .shortcuts:  return "keyboard"
+        case .about:      return "info.circle"
+        }
+    }
+}
+
+private struct SettingsSidebar: View {
+    @Binding var selection: SettingsSection
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Settings")
+                .font(.system(size: 17, weight: .semibold))
+                .padding(.horizontal, 16)
+                .padding(.top, 18)
+                .padding(.bottom, 14)
+
+            VStack(spacing: 2) {
+                ForEach(SettingsSection.allCases) { section in
+                    SidebarRow(section: section, isActive: selection == section) {
+                        selection = section
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+
+            Spacer()
+        }
+        .frame(maxHeight: .infinity)
+        .background(Color(nsColor: .underPageBackgroundColor).opacity(0.4))
+    }
+}
+
+private struct SidebarRow: View {
+    let section: SettingsSection
+    let isActive: Bool
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: section.icon)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 18)
+                    .foregroundStyle(isActive ? Color.white : .secondary)
+                Text(section.title)
+                    .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+                    .foregroundStyle(isActive ? Color.white : .primary)
+                Spacer()
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(isActive ? Color.accentColor : (hover ? Color.primary.opacity(0.06) : .clear))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+    }
+}
+
+// MARK: - Reusable building blocks
+
+private struct SettingsSection_Card<Content: View>: View {
+    let title: String
+    var subtitle: String? = nil
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 15, weight: .semibold))
+                if let subtitle {
+                    Text(subtitle).font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+            }
+            content()
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
+        )
+    }
+}
+
+private struct SettingsRow<Trailing: View>: View {
+    let title: String
+    var subtitle: String? = nil
+    @ViewBuilder var trailing: () -> Trailing
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 13))
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            trailing()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
+    }
+}
+
+private struct PageTitle: View {
+    let title: String
+    var subtitle: String? = nil
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.system(size: 22, weight: .bold))
+            if let subtitle {
+                Text(subtitle).font(.system(size: 13)).foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.bottom, 8)
     }
 }
 
@@ -55,242 +212,504 @@ private func settingsBinding<T>(_ appState: AppState, _ keyPath: WritableKeyPath
     )
 }
 
-// MARK: - General Settings
+// MARK: - General
 
 struct GeneralSettingsView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Form {
-            Section("Startup") {
-                Toggle("Launch at login", isOn: Binding(
+        VStack(alignment: .leading, spacing: 18) {
+            PageTitle(title: "General", subtitle: "Startup, feedback and clipboard behavior.")
+
+            SettingsSection_Card(title: "Startup") {
+                Toggle(isOn: Binding(
                     get: { appState.settings.launchAtLogin },
                     set: { newValue in
                         appState.updateSettings { $0.launchAtLogin = newValue }
                         if #available(macOS 13.0, *) {
                             do {
-                                if newValue {
-                                    try SMAppService.mainApp.register()
-                                } else {
-                                    try SMAppService.mainApp.unregister()
-                                }
+                                if newValue { try SMAppService.mainApp.register() }
+                                else        { try SMAppService.mainApp.unregister() }
                             } catch {
                                 print("[Settings] Login item error: \(error)")
                             }
                         }
                     }
-                ))
-
-                Toggle("Show in Dock", isOn: Binding(
+                )) {
+                    rowText("Launch at login", "Open NotchSnap automatically when you sign in.")
+                }
+                Divider()
+                Toggle(isOn: Binding(
                     get: { appState.settings.showInDock },
                     set: { newValue in
                         appState.updateSettings { $0.showInDock = newValue }
                         NSApp.setActivationPolicy(newValue ? .regular : .accessory)
                     }
-                ))
+                )) {
+                    rowText("Show in Dock", "Hide to keep NotchSnap as a menu-bar-only app.")
+                }
             }
 
-            Section("Feedback") {
-                Toggle("Capture sound", isOn: settingsBinding(appState, \.playSound))
-                Toggle("Interface sound effects", isOn: Binding(
+            SettingsSection_Card(title: "Feedback") {
+                Toggle(isOn: settingsBinding(appState, \.playSound)) {
+                    rowText("Capture sound", "Play the system shutter sound on capture.")
+                }
+                Divider()
+                Toggle(isOn: Binding(
                     get: {
                         UserDefaults.standard.object(forKey: "soundEffectsEnabled") == nil
-                        || UserDefaults.standard.bool(forKey: "soundEffectsEnabled")
+                            || UserDefaults.standard.bool(forKey: "soundEffectsEnabled")
                     },
                     set: { UserDefaults.standard.set($0, forKey: "soundEffectsEnabled") }
-                ))
-                Toggle("Haptic feedback (trackpad)", isOn: Binding(
+                )) {
+                    rowText("Interface sound effects", "Subtle clicks for the notch and clipboard tiles.")
+                }
+                Divider()
+                Toggle(isOn: Binding(
                     get: { UserDefaults.standard.bool(forKey: "hapticFeedback") },
                     set: { UserDefaults.standard.set($0, forKey: "hapticFeedback") }
-                ))
+                )) {
+                    rowText("Haptic feedback", "Trackpad taps when the notch expands or you copy.")
+                }
             }
 
-            Section("Behavior") {
-                Toggle("Automatically copy to clipboard", isOn: settingsBinding(appState, \.autoCopyToClipboard))
+            SettingsSection_Card(title: "Clipboard") {
+                Toggle(isOn: settingsBinding(appState, \.autoCopyToClipboard)) {
+                    rowText("Auto-copy to clipboard", "Copy every new screenshot automatically.")
+                }
             }
         }
-        .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private func rowText(_ title: String, _ subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.system(size: 13))
+            Text(subtitle).font(.system(size: 11)).foregroundStyle(.secondary)
+        }
     }
 }
 
-// MARK: - Notch Appearance Settings (with live preview)
+// MARK: - Appearance
 
-struct NotchAppearanceSettingsView: View {
-    @AppStorage("notchCornerRadius")   private var cornerRadius: Double = 10
-    @AppStorage("notchExpandedWidth")  private var expandedWidth: Double = 600
-    @AppStorage("notchExpandedHeight") private var expandedHeight: Double = 180
+struct AppearanceSettingsView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Form {
-            // LIVE PREVIEW — updates in real-time while moving sliders
-            Section {
+        VStack(alignment: .leading, spacing: 18) {
+            PageTitle(title: "Appearance", subtitle: "Choose how NotchSnap looks. Follows your system by default.")
+
+            SettingsSection_Card(
+                title: "Theme",
+                subtitle: "Pick a theme or follow the system preference."
+            ) {
+                HStack(spacing: 12) {
+                    ForEach(AppTheme.allCases, id: \.self) { theme in
+                        ThemeCard(
+                            theme: theme,
+                            isSelected: appState.settings.appTheme == theme
+                        ) {
+                            appState.updateSettings { $0.appTheme = theme }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct ThemeCard: View {
+    let theme: AppTheme
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 10) {
+                ThemePreview(theme: theme)
+                    .frame(height: 88)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                    )
+
+                HStack(spacing: 6) {
+                    Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+                    Text(theme.label).font(.system(size: 12, weight: .medium))
+                    Spacer()
+                }
+            }
+            .padding(8)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.03))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(isSelected ? Color.accentColor : Color.primary.opacity(0.08),
+                            lineWidth: isSelected ? 1.5 : 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// Tiny representation of light/dark/system styling shown inside the theme card.
+private struct ThemePreview: View {
+    let theme: AppTheme
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                switch theme {
+                case .light:
+                    previewWindow(bg: .white, fg: .black)
+                case .dark:
+                    previewWindow(bg: Color(red: 0.10, green: 0.11, blue: 0.13),
+                                  fg: .white)
+                case .system:
+                    HStack(spacing: 0) {
+                        previewWindow(bg: .white, fg: .black)
+                            .frame(width: geo.size.width / 2)
+                        previewWindow(bg: Color(red: 0.10, green: 0.11, blue: 0.13),
+                                      fg: .white)
+                            .frame(width: geo.size.width / 2)
+                    }
+                }
+            }
+        }
+    }
+
+    private func previewWindow(bg: Color, fg: Color) -> some View {
+        ZStack(alignment: .top) {
+            bg
+            // Tiny notch on top
+            Capsule()
+                .fill(Color.black)
+                .frame(width: 36, height: 8)
+                .offset(y: -2)
+            // Mock content lines
+            VStack(alignment: .leading, spacing: 5) {
+                Spacer().frame(height: 14)
+                RoundedRectangle(cornerRadius: 2).fill(fg.opacity(0.85)).frame(width: 32, height: 5)
+                RoundedRectangle(cornerRadius: 2).fill(fg.opacity(0.35)).frame(width: 50, height: 4)
+                RoundedRectangle(cornerRadius: 2).fill(fg.opacity(0.35)).frame(width: 42, height: 4)
+            }
+            .padding(.leading, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+// MARK: - Notch
+
+enum NotchSizePreset: String, CaseIterable, Identifiable {
+    case compact, wide, extraWide
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .compact:   return "Compact"
+        case .wide:      return "Wide"
+        case .extraWide: return "Extra Large"
+        }
+    }
+    var subtitle: String {
+        switch self {
+        case .compact:   return "Minimal — fits a single tile"
+        case .wide:      return "Balanced — recommended"
+        case .extraWide: return "Spacious — more room for tiles"
+        }
+    }
+    var width: Double {
+        switch self {
+        case .compact: 480; case .wide: 600; case .extraWide: 740
+        }
+    }
+    var height: Double {
+        switch self {
+        case .compact: 150; case .wide: 180; case .extraWide: 220
+        }
+    }
+    var radius: Double { 10 }
+
+    static func match(width: Double, height: Double) -> NotchSizePreset {
+        allCases.min(by: {
+            abs($0.width - width) + abs($0.height - height)
+            < abs($1.width - width) + abs($1.height - height)
+        }) ?? .wide
+    }
+}
+
+struct NotchSettingsView: View {
+    @EnvironmentObject var appState: AppState
+    @AppStorage("notchCornerRadius")   private var cornerRadius: Double = 10
+    @AppStorage("notchExpandedWidth")  private var expandedWidth: Double = 600
+    @AppStorage("notchExpandedHeight") private var expandedHeight: Double = 180
+
+    private var currentPreset: NotchSizePreset {
+        NotchSizePreset.match(width: expandedWidth, height: expandedHeight)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            PageTitle(title: "Notch", subtitle: "How the notch looks and when it opens.")
+
+            SettingsSection_Card(title: "Preview") {
                 NotchLivePreview(
                     cornerRadius: cornerRadius,
                     width: expandedWidth,
                     height: expandedHeight
                 )
-                .frame(height: 140)
-            } header: {
-                Text("Preview")
+                .frame(height: 130)
+                .frame(maxWidth: .infinity)
             }
 
-            // GEOMETRY
-            Section("Geometry") {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("Width")
-                        Spacer()
-                        Text("\(Int(expandedWidth))pt")
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
+            SettingsSection_Card(
+                title: "Size",
+                subtitle: "Choose a preset. Width, height and curvature adapt together."
+            ) {
+                VStack(spacing: 8) {
+                    ForEach(NotchSizePreset.allCases) { preset in
+                        SizePresetRow(
+                            preset: preset,
+                            isSelected: currentPreset == preset
+                        ) {
+                            withAnimation(.easeOut(duration: 0.15)) {
+                                expandedWidth  = preset.width
+                                expandedHeight = preset.height
+                                cornerRadius   = preset.radius
+                            }
+                        }
                     }
-                    Slider(value: $expandedWidth, in: 400...800, step: 10)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("Height")
-                        Spacer()
-                        Text("\(Int(expandedHeight))pt")
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
-                    }
-                    Slider(value: $expandedHeight, in: 120...280, step: 4)
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text("Corner radius")
-                        Spacer()
-                        Text("\(Int(cornerRadius))pt")
-                            .foregroundColor(.secondary)
-                            .monospacedDigit()
-                    }
-                    Slider(value: $cornerRadius, in: 4...24, step: 1)
                 }
             }
 
-            // ACTIVATION
-            Section("Activation") {
-                Picker("Open the notch with", selection: settingsBinding(appState, \.notchTrigger)) {
+            SettingsSection_Card(
+                title: "Activation",
+                subtitle: "Decide how the notch opens."
+            ) {
+                Picker("", selection: settingsBinding(appState, \.notchTrigger)) {
                     Text("Cursor hover").tag(NotchTrigger.hover)
                     Text("Click").tag(NotchTrigger.click)
                     Text("Never (menu bar only)").tag(NotchTrigger.never)
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
 
                 if appState.settings.notchTrigger == .hover {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text("Hover delay")
-                            Spacer()
-                            Text(appState.settings.hoverDelayMs == 0 ? "Instant" : "\(appState.settings.hoverDelayMs)ms")
-                                .foregroundColor(.secondary)
-                                .monospacedDigit()
-                        }
+                    Divider()
+                    SettingsRow(
+                        title: "Hover delay",
+                        subtitle: appState.settings.hoverDelayMs == 0 ? "Instant" : "\(appState.settings.hoverDelayMs)ms"
+                    ) {
                         Slider(
                             value: Binding(
                                 get: { Double(appState.settings.hoverDelayMs) },
                                 set: { newVal in appState.updateSettings { s in s.hoverDelayMs = Int(newVal) } }
                             ),
-                            in: 0...500,
-                            step: 25
+                            in: 0...500, step: 25
                         )
+                        .frame(width: 200)
                     }
                 }
             }
 
-            // BEHAVIOR
-            Section("Behavior") {
-                Picker("Auto-close after", selection: settingsBinding(appState, \.autoCollapseSeconds)) {
-                    Text("3 seconds").tag(Optional(3))
-                    Text("5 seconds").tag(Optional(5))
-                    Text("10 seconds").tag(Optional(10))
-                    Text("Never").tag(Optional<Int>.none)
+            SettingsSection_Card(title: "Behavior") {
+                SettingsRow(title: "Auto-close after") {
+                    Picker("", selection: settingsBinding(appState, \.autoCollapseSeconds)) {
+                        Text("3 seconds").tag(Optional(3))
+                        Text("5 seconds").tag(Optional(5))
+                        Text("10 seconds").tag(Optional(10))
+                        Text("Never").tag(Optional<Int>.none)
+                    }
+                    .labelsHidden()
+                    .frame(width: 160)
                 }
-
-                Toggle("Show counter badge", isOn: settingsBinding(appState, \.showBadgeCounter))
+                Divider()
+                Toggle(isOn: settingsBinding(appState, \.showBadgeCounter)) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Counter badge").font(.system(size: 13))
+                        Text("Show how many screenshots are in the session.")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                }
             }
 
-            // RESET
-            Section {
+            HStack {
+                Spacer()
                 Button("Restore defaults") {
-                    cornerRadius = 10
-                    expandedWidth = 600
-                    expandedHeight = 180
-                    appState.updateSettings { s in
-                        s.notchTrigger = .hover
-                        s.hoverDelayMs = 0
-                        s.autoCollapseSeconds = 5
-                        s.showBadgeCounter = true
+                    withAnimation {
+                        let p = NotchSizePreset.wide
+                        expandedWidth = p.width
+                        expandedHeight = p.height
+                        cornerRadius = p.radius
+                        appState.updateSettings { s in
+                            s.notchTrigger = .hover
+                            s.hoverDelayMs = 0
+                            s.autoCollapseSeconds = 5
+                            s.showBadgeCounter = true
+                        }
                     }
                 }
-                .foregroundColor(.red)
+                .buttonStyle(.plain)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
     }
 }
 
-// MARK: - Capture Settings
+private struct SizePresetRow: View {
+    let preset: NotchSizePreset
+    let isSelected: Bool
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                // Mini visual indicator
+                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                    .fill(Color.primary.opacity(0.08))
+                    .frame(width: relativeWidth, height: 18)
+                    .overlay(
+                        Capsule()
+                            .fill(Color.black.opacity(0.7))
+                            .frame(width: relativeWidth * 0.45, height: 5)
+                            .offset(y: -6.5)
+                    )
+                    .frame(width: 56, alignment: .leading)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(preset.label).font(.system(size: 13, weight: .medium))
+                    Text(preset.subtitle).font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary.opacity(0.5))
+                    .font(.system(size: 16))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .fill(isSelected ? Color.accentColor.opacity(0.08)
+                          : (hover ? Color.primary.opacity(0.04) : Color.primary.opacity(0.02)))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .stroke(isSelected ? Color.accentColor.opacity(0.5) : Color.primary.opacity(0.08),
+                            lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+    }
+
+    private var relativeWidth: CGFloat {
+        switch preset {
+        case .compact:   return 32
+        case .wide:      return 44
+        case .extraWide: return 56
+        }
+    }
+}
+
+// MARK: - Capture
 
 struct CaptureSettingsView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Form {
-            Section("Capture") {
-                Picker("Default mode", selection: settingsBinding(appState, \.defaultCaptureMode)) {
-                    Text("Area").tag(CaptureMode.area)
-                    Text("Window").tag(CaptureMode.window)
-                    Text("Full screen").tag(CaptureMode.fullscreen)
-                }
+        VStack(alignment: .leading, spacing: 18) {
+            PageTitle(title: "Capture", subtitle: "How screenshots are taken and saved.")
 
-                Toggle("Screenshot sound", isOn: settingsBinding(appState, \.playSound))
-                Toggle("Window shadow", isOn: settingsBinding(appState, \.windowShadow))
+            SettingsSection_Card(title: "Defaults") {
+                SettingsRow(title: "Default mode") {
+                    Picker("", selection: settingsBinding(appState, \.defaultCaptureMode)) {
+                        Text("Area").tag(CaptureMode.area)
+                        Text("Window").tag(CaptureMode.window)
+                        Text("Full screen").tag(CaptureMode.fullscreen)
+                    }
+                    .labelsHidden()
+                    .frame(width: 160)
+                }
+                Divider()
+                Toggle(isOn: settingsBinding(appState, \.playSound)) {
+                    rowText("Screenshot sound", "Play the standard system shutter sound.")
+                }
+                Divider()
+                Toggle(isOn: settingsBinding(appState, \.windowShadow)) {
+                    rowText("Window shadow", "Include the macOS drop shadow on window captures.")
+                }
             }
 
-            Section("Saving") {
-                Toggle("Automatically save to file", isOn: settingsBinding(appState, \.autoSaveFile))
+            SettingsSection_Card(title: "Saving") {
+                Toggle(isOn: settingsBinding(appState, \.autoSaveFile)) {
+                    rowText("Auto-save to file", "Write each capture straight to disk.")
+                }
 
                 if appState.settings.autoSaveFile {
-                    HStack {
-                        Text(appState.settings.saveDirectory.path)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer()
+                    Divider()
+                    SettingsRow(title: "Folder", subtitle: appState.settings.saveDirectory.path) {
                         Button("Choose\u{2026}") { chooseSaveDirectory() }
                     }
                 }
 
-                Picker("File format", selection: settingsBinding(appState, \.fileFormat)) {
-                    Text("PNG").tag(FileFormat.png)
-                    Text("JPEG").tag(FileFormat.jpeg)
+                Divider()
+                SettingsRow(title: "File format") {
+                    Picker("", selection: settingsBinding(appState, \.fileFormat)) {
+                        Text("PNG").tag(FileFormat.png)
+                        Text("JPEG").tag(FileFormat.jpeg)
+                    }
+                    .labelsHidden()
+                    .frame(width: 120)
                 }
 
                 if appState.settings.fileFormat == .jpeg {
-                    HStack {
-                        Text("JPEG quality:")
+                    Divider()
+                    SettingsRow(
+                        title: "JPEG quality",
+                        subtitle: "\(Int(appState.settings.jpegQuality * 100))%"
+                    ) {
                         Slider(value: settingsBinding(appState, \.jpegQuality), in: 0.1...1.0, step: 0.05)
-                        Text("\(Int(appState.settings.jpegQuality * 100))%")
-                            .frame(width: 40)
+                            .frame(width: 200)
                     }
                 }
             }
 
-            Section("Session") {
-                Picker("Screenshots in memory", selection: settingsBinding(appState, \.maxSessionScreenshots)) {
-                    Text("5").tag(5)
-                    Text("10").tag(10)
-                    Text("20").tag(20)
-                    Text("50").tag(50)
+            SettingsSection_Card(title: "Session") {
+                SettingsRow(title: "Screenshots in memory") {
+                    Picker("", selection: settingsBinding(appState, \.maxSessionScreenshots)) {
+                        Text("5").tag(5)
+                        Text("10").tag(10)
+                        Text("20").tag(20)
+                        Text("50").tag(50)
+                    }
+                    .labelsHidden()
+                    .frame(width: 100)
                 }
-
-                Toggle("Clear session on launch", isOn: settingsBinding(appState, \.clearSessionOnLaunch))
+                Divider()
+                Toggle(isOn: settingsBinding(appState, \.clearSessionOnLaunch)) {
+                    rowText("Clear session on launch", "Start fresh every time NotchSnap opens.")
+                }
             }
         }
-        .formStyle(.grouped)
+    }
+
+    @ViewBuilder
+    private func rowText(_ title: String, _ subtitle: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title).font(.system(size: 13))
+            Text(subtitle).font(.system(size: 11)).foregroundStyle(.secondary)
+        }
     }
 
     private func chooseSaveDirectory() {
@@ -304,31 +723,36 @@ struct CaptureSettingsView: View {
     }
 }
 
-// MARK: - Shortcuts Settings
+// MARK: - Shortcuts
 
 struct ShortcutsSettingsView: View {
     var body: some View {
-        Form {
-            Section("Active shortcuts") {
+        VStack(alignment: .leading, spacing: 18) {
+            PageTitle(title: "Shortcuts", subtitle: "Global keyboard shortcuts available system-wide.")
+
+            SettingsSection_Card(title: "Capture") {
                 ShortcutRow(label: "Capture area", keys: "\u{2303}\u{21E7}4")
+                Divider()
                 ShortcutRow(label: "Capture window", keys: "\u{2303}\u{21E7}2")
+                Divider()
                 ShortcutRow(label: "Capture screen", keys: "\u{2303}\u{21E7}3")
+                Divider()
                 ShortcutRow(label: "Capture area + Editor", keys: "\u{2303}\u{21E7}5")
+                Divider()
                 ShortcutRow(label: "Repeat last capture", keys: "\u{2303}\u{21E7}Space")
             }
 
-            Section("General") {
+            SettingsSection_Card(title: "Application") {
                 ShortcutRow(label: "Open Settings", keys: "\u{2318} ,")
-                ShortcutRow(label: "Quit app", keys: "\u{2318} Q")
+                Divider()
+                ShortcutRow(label: "Quit", keys: "\u{2318} Q")
             }
 
-            Section {
-                Text("Shortcuts using \u{2303}\u{21E7} (Control+Shift) work globally from any app.")
-                    .foregroundColor(.secondary)
-                    .font(.footnote)
-            }
+            Text("Shortcuts using \u{2303}\u{21E7} (Control+Shift) are global — they work from any app.")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
         }
-        .formStyle(.grouped)
     }
 }
 
@@ -338,15 +762,18 @@ struct ShortcutRow: View {
 
     var body: some View {
         HStack {
-            Text(label)
+            Text(label).font(.system(size: 13))
             Spacer()
             Text(keys)
-                .font(.system(.body, design: .monospaced))
+                .font(.system(size: 12, design: .monospaced))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
-                .background(Color.primary.opacity(0.08))
-                .cornerRadius(5)
+                .background(
+                    RoundedRectangle(cornerRadius: 5, style: .continuous)
+                        .fill(Color.primary.opacity(0.08))
+                )
         }
+        .padding(.vertical, 4)
     }
 }
 
@@ -354,33 +781,39 @@ struct ShortcutRow: View {
 
 struct AboutSettingsView: View {
     var body: some View {
-        VStack(spacing: 16) {
-            Spacer()
+        VStack(alignment: .leading, spacing: 18) {
+            PageTitle(title: "About")
 
-            Image(systemName: "camera.viewfinder")
-                .font(.system(size: 48))
-                .foregroundColor(.accentColor)
+            SettingsSection_Card(title: "NotchSnap") {
+                HStack(spacing: 16) {
+                    Image(systemName: "camera.viewfinder")
+                        .font(.system(size: 38))
+                        .foregroundStyle(Color.accentColor)
+                        .frame(width: 56, height: 56)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.accentColor.opacity(0.12))
+                        )
 
-            Text("NotchSnap")
-                .font(.title)
-                .fontWeight(.bold)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("NotchSnap").font(.system(size: 17, weight: .semibold))
+                        Text("Version 1.0").font(.system(size: 12)).foregroundStyle(.secondary)
+                        Text("Screenshot tool that lives in your Mac's notch.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
 
-            Text("v1.0")
-                .font(.title3)
-                .foregroundColor(.secondary)
+                Divider()
 
-            Text("Screenshot tool that lives in your Mac's notch.")
-                .font(.body)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-
-            Spacer()
-
-            Text("\u{00A9} 2026 NotchSnap")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.6))
-                .padding(.bottom, 16)
+                HStack {
+                    Text("\u{00A9} 2026 NotchSnap")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

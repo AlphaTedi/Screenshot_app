@@ -2,6 +2,27 @@ import Foundation
 import AppKit
 import SwiftUI
 
+// MARK: - QuickLookItem — Hovered gallery item for Spacebar Quick Look
+//
+// Defined here (rather than in QuickLookPreview.swift) so AppState can
+// reference it without depending on file target-membership ordering.
+
+enum QuickLookItem: Equatable {
+    case screenshot(ScreenshotItem)
+    case clipboard(ClipboardItem)
+
+    var trackingID: UUID {
+        switch self {
+        case .screenshot(let s): return s.id
+        case .clipboard(let c):  return c.id
+        }
+    }
+
+    static func == (lhs: QuickLookItem, rhs: QuickLookItem) -> Bool {
+        lhs.trackingID == rhs.trackingID
+    }
+}
+
 // MARK: - AppState — Source of truth
 
 @MainActor
@@ -14,6 +35,10 @@ class AppState: ObservableObject {
     @Published var selectedScreenshotID: UUID? = nil
     @Published var settings: AppSettings = AppSettings.load()
     @Published var lastCaptureMode: CaptureMode = .area
+
+    /// Currently-hovered gallery item — drives the Spacebar Quick Look preview.
+    /// Set by ScreenshotThumbnailView and ClipboardTile in their .onHover.
+    @Published var hoveredQuickLookItem: QuickLookItem? = nil
 
     private let maxClipboardItems = 30
 
@@ -162,5 +187,15 @@ class AppState: ObservableObject {
     func updateSettings(_ block: (inout AppSettings) -> Void) {
         block(&settings)
         settings.save()
+        applyTheme()
+    }
+
+    /// Applies the selected app theme. Called on launch and after any settings change.
+    func applyTheme() {
+        switch settings.appTheme {
+        case .system: NSApp.appearance = nil
+        case .light:  NSApp.appearance = NSAppearance(named: .aqua)
+        case .dark:   NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
     }
 }

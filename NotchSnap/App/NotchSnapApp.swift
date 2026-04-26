@@ -8,6 +8,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeyManager: HotkeyManager?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Apply user-selected theme (system / light / dark)
+        AppState.shared.applyTheme()
+
         // Hide from Dock if configured
         if !AppState.shared.settings.showInDock {
             NSApp.setActivationPolicy(.accessory)

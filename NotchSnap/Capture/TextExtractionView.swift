@@ -151,11 +151,15 @@ struct TextExtractionView: View {
 
         guard !text.isEmpty else { return }
 
-        ClipboardMonitor.shared.skipNextChange()
+        // NOTE: do NOT call ClipboardMonitor.skipNextChange() here. The user
+        // explicitly chose to copy this OCR text — we want it to flow through
+        // the monitor and land in the clipboard history (the notch panel)
+        // exactly like any other Cmd+C from another app.
         let pb = NSPasteboard.general
         pb.clearContents()
         pb.setString(text, forType: .string)
 
+        HapticManager.shared.copyConfirmed()
         onExit()
     }
 

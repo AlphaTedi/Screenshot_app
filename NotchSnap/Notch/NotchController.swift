@@ -25,6 +25,7 @@ class NotchController: ObservableObject {
     private var panel: NSPanel?
     private var mouseMonitor: Any?
     private var localMouseMonitor: Any?
+    private var keyMonitor: Any?
     private var hoverTask: Task<Void, Never>?
     private var expandTask: Task<Void, Never>?
     private var collapseTask: Task<Void, Never>?
@@ -217,6 +218,10 @@ class NotchController: ObservableObject {
             AppState.shared.isNotchExpanded = false
             autoCollapseTimer?.invalidate()
             autoCollapseTimer = nil
+
+            // Tear down any open Quick Look + clear hover state.
+            QuickLookPreviewController.shared.close()
+            AppState.shared.hoveredQuickLookItem = nil
 
             // Revoke key status + stop intercepting mouse events
             (panel as? NotchPanel)?.allowKey = false
@@ -421,6 +426,19 @@ class NotchController: ObservableObject {
             }
         }
 
+        // Spacebar Quick Look — works while the expanded notch is showing and
+        // a tile is hovered. Mirrors Finder's spacebar preview.
+        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            if event.keyCode == 49 { // spacebar
+                // NSEvent local monitors fire on the main thread; this class
+                // is @MainActor, so we can call into it directly.
+                let handled = MainActor.assumeIsolated { self.handleSpacebar() }
+                if handled { return nil }
+            }
+            return event
+        }
+
         localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown]) { [weak self] event in
             Task { @MainActor in
                 if event.type == .leftMouseDown {
@@ -470,6 +488,23 @@ class NotchController: ObservableObject {
         } else if !inZone && state == .idle {
             hoverTask?.cancel()
         }
+    }
+
+    /// Spacebar Quick Look. Returns true if the event was consumed.
+    private func handleSpacebar() -> Bool {
+        // If a Quick Look panel is already up, close it regardless of state.
+        if QuickLookPreviewController.shared.isVisible {
+            QuickLookPreviewController.shared.close()
+            return true
+        }
+        // Otherwise only react when the notch is actually expanded AND a
+        // tile is currently being hovered.
+        guard state == .expanded,
+              let item = AppState.shared.hoveredQuickLookItem else {
+            return false
+        }
+        QuickLookPreviewController.shared.show(item)
+        return true
     }
 
     private func handleClick() {
@@ -598,4 +633,229 @@ class NotchPanel: NSPanel {
 
     override var canBecomeKey: Bool { allowKey }
     override var canBecomeMain: Bool { false }
+}
+// MARK: - QuickLookPreviewController
+// (QuickLookItem is defined in AppState.swift so it's always in scope.)
+//
+// Mimics Finder's spacebar Quick Look. While the expanded notch is up and
+// the user hovers a thumbnail or clipboard tile, pressing the spacebar
+// surfaces a centered, borderless NSPanel with a large preview. Spacebar /
+// Escape / outside click dismisses it.
+
+@MainActor
+final class QuickLookPreviewController {
+    static let shared = QuickLookPreviewController()
+
+    private var panel: NSPanel?
+    private var keyMonitor: Any?
+    private var clickMonitor: Any?
+
+    var isVisible: Bool { panel != nil }
+
+    func toggle(for item: QuickLookItem) {
+        if isVisible {
+            close()
+        } else {
+            show(item)
+        }
+    }
+
+    func show(_ item: QuickLookItem) {
+        close()
+
+        guard let screen = NSScreen.main else { return }
+
+        // Size: cap at 80% of the screen, with a comfortable minimum.
+        let maxW = screen.visibleFrame.width  * 0.8
+        let maxH = screen.visibleFrame.height * 0.8
+        let size = NSSize(width: min(900, maxW), height: min(640, maxH))
+
+        let frame = NSRect(
+            x: screen.frame.midX - size.width / 2,
+            y: screen.frame.midY - size.height / 2,
+            width: size.width,
+            height: size.height
+        )
+
+        let panel = NSPanel(
+            contentRect: frame,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .floating
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isMovableByWindowBackground = false
+
+        let host = NSHostingView(rootView: QuickLookPreviewView(item: item))
+        host.frame = panel.contentView?.bounds ?? .zero
+        host.autoresizingMask = [.width, .height]
+        panel.contentView = host
+        panel.orderFrontRegardless()
+
+        self.panel = panel
+        installMonitors()
+    }
+
+    func close() {
+        panel?.orderOut(nil)
+        panel = nil
+        if let m = keyMonitor   { NSEvent.removeMonitor(m); keyMonitor = nil }
+        if let m = clickMonitor { NSEvent.removeMonitor(m); clickMonitor = nil }
+    }
+
+    // MARK: - Monitors (key + click-outside)
+
+    private func installMonitors() {
+        // Spacebar / Escape close — global so it works even though the panel
+        // is non-activating and our app may not be frontmost.
+        keyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return }
+            if event.keyCode == 49 || event.keyCode == 53 { // space / escape
+                Task { @MainActor in self.close() }
+            }
+        }
+        // Local fallback (when our own panel happens to be key, e.g. after a
+        // click): same keys, but consume the event.
+        let local = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self else { return event }
+            if event.keyCode == 49 || event.keyCode == 53 {
+                self.close()
+                return nil
+            }
+            return event
+        }
+        // Stash the local monitor on top of the global one — close() removes both.
+        if keyMonitor == nil { keyMonitor = local } else { clickMonitor = local }
+    }
+}
+
+// MARK: - QuickLookPreviewView — SwiftUI body of the Quick Look panel
+
+struct QuickLookPreviewView: View {
+    let item: QuickLookItem
+
+    var body: some View {
+        ZStack {
+            // Soft, blurred backdrop with a subtle stroke to feel like macOS Quick Look.
+            VisualEffectBlur(material: .hudWindow, blendingMode: .behindWindow)
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                )
+
+            content
+                .padding(24)
+        }
+        .shadow(color: .black.opacity(0.45), radius: 28, y: 10)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch item {
+        case .screenshot(let s):
+            ScreenshotPreview(item: s)
+        case .clipboard(let c):
+            ClipboardPreview(item: c)
+        }
+    }
+}
+
+// MARK: - Screenshot preview body
+
+private struct ScreenshotPreview: View {
+    let item: ScreenshotItem
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(nsImage: item.flattenedImage)
+                .resizable()
+                .interpolation(.high)
+                .aspectRatio(contentMode: .fit)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+            HStack(spacing: 8) {
+                Text(item.dimensions)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                Text("·").foregroundStyle(.secondary)
+                Text(item.relativeTime)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("Press Space to close")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+// MARK: - Clipboard preview body
+
+private struct ClipboardPreview: View {
+    let item: ClipboardItem
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                Image(systemName: item.iconName)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(item.relativeTime)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("Press Space to close")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+            }
+
+            Group {
+                switch item.type {
+                case .screenshot, .image:
+                    if let img = item.previewImage {
+                        Image(nsImage: img)
+                            .resizable()
+                            .interpolation(.high)
+                            .aspectRatio(contentMode: .fit)
+                            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    }
+                case .color:
+                    HStack(spacing: 16) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(colorFromItem)
+                            .frame(width: 160, height: 160)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(.white.opacity(0.15), lineWidth: 1)
+                            )
+                        Text(item.previewText ?? "")
+                            .font(.system(size: 24, weight: .semibold, design: .monospaced))
+                        Spacer()
+                    }
+                default:
+                    ScrollView {
+                        Text(item.previewText ?? "")
+                            .font(.system(size: 14, design: item.type == .code ? .monospaced : .default))
+                            .foregroundStyle(.primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var colorFromItem: Color {
+        if let nsColor = item.previewColor { return Color(nsColor) }
+        if let hex = item.previewText, let c = NSColor.fromHex(hex) { return Color(nsColor: c) }
+        return .gray
+    }
 }

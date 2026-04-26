@@ -70,8 +70,12 @@ struct ScreenshotThumbnailView: View {
             isHovered = hovering
             if hovering {
                 NSCursor.pointingHand.push()
+                appState.hoveredQuickLookItem = .screenshot(item)
             } else {
                 NSCursor.pop()
+                if case .screenshot(let s) = appState.hoveredQuickLookItem, s.id == item.id {
+                    appState.hoveredQuickLookItem = nil
+                }
             }
         }
         .contextMenu {

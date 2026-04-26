@@ -66,30 +66,27 @@ struct NotchExpandedView: View {
         .animation(.easeOut(duration: 0.2).delay(0.18), value: appeared)
     }
 
+    private var galleryTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: .trailing).combined(with: .opacity).combined(with: .scale(scale: 0.72, anchor: .trailing)),
+            removal: .move(edge: .leading).combined(with: .opacity)
+        )
+    }
+
     // MARK: - Gallery — screenshots first, then clipboard items
 
     private var galleryView: some View {
+        // PERF: dropped per-card staggered cardEntry animations and `.map(\.id)`
+        // dependency arrays. With many items they were O(N) every body rebuild
+        // and every appeared toggle would fire N stacked springs simultaneously.
+        // Lazy stack diffing + transition() handle insert/remove animation cleanly.
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 10) {
-                // Screenshots (draggable)
-                ForEach(Array(appState.screenshots.enumerated()), id: \.element.id) { index, item in
+                ForEach(appState.screenshots) { item in
                     ScreenshotThumbnailView(item: item)
-                        .scaleEffect(appeared ? 1.0 : 0.65)
-                        .opacity(appeared ? 1.0 : 0.0)
-                        .offset(y: appeared ? 0 : -8)
-                        .animation(NotchAnimation.cardEntry(index: index), value: appeared)
-                        .transition(
-                            .asymmetric(
-                                insertion: .move(edge: .trailing)
-                                    .combined(with: .opacity)
-                                    .combined(with: .scale(scale: 0.72, anchor: .trailing)),
-                                removal: .move(edge: .leading)
-                                    .combined(with: .opacity)
-                            )
-                        )
+                        .transition(galleryTransition)
                 }
 
-                // Separator if both exist
                 if !appState.screenshots.isEmpty && !appState.clipboardItems.isEmpty {
                     Divider()
                         .frame(height: 60)
@@ -97,32 +94,16 @@ struct NotchExpandedView: View {
                         .padding(.horizontal, 4)
                 }
 
-                // Clipboard items
-                ForEach(Array(appState.clipboardItems.enumerated()), id: \.element.id) { index, item in
+                ForEach(appState.clipboardItems) { item in
                     ClipboardTile(item: item)
-                        .scaleEffect(appeared ? 1.0 : 0.65)
-                        .opacity(appeared ? 1.0 : 0.0)
-                        .offset(y: appeared ? 0 : -8)
-                        .animation(
-                            NotchAnimation.cardEntry(index: appState.screenshots.count + index),
-                            value: appeared
-                        )
-                        .transition(
-                            .asymmetric(
-                                insertion: .move(edge: .trailing)
-                                    .combined(with: .opacity)
-                                    .combined(with: .scale(scale: 0.72, anchor: .trailing)),
-                                removal: .move(edge: .leading)
-                                    .combined(with: .opacity)
-                            )
-                        )
+                        .transition(galleryTransition)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
-        .animation(NotchAnimation.newScreenshot, value: appState.screenshots.map(\.id))
-        .animation(NotchAnimation.newScreenshot, value: appState.clipboardItems.map(\.id))
+        .animation(NotchAnimation.newScreenshot, value: appState.screenshots.count)
+        .animation(NotchAnimation.newScreenshot, value: appState.clipboardItems.count)
         .clipShape(
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,

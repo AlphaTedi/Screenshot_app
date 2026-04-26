@@ -20,6 +20,20 @@ enum CaptureMode: String, Codable, CaseIterable {
     case fullscreen
 }
 
+enum AppTheme: String, Codable, CaseIterable {
+    case system
+    case light
+    case dark
+
+    var label: String {
+        switch self {
+        case .system: return "System"
+        case .light:  return "Light"
+        case .dark:   return "Dark"
+        }
+    }
+}
+
 // MARK: - KeyCombo
 
 struct KeyCombo: Codable, Equatable {
@@ -87,6 +101,7 @@ struct AppSettings: Codable {
     // General
     var launchAtLogin: Bool = false
     var showInDock: Bool = false
+    var appTheme: AppTheme = .system
 
     // MARK: Persistence
 
