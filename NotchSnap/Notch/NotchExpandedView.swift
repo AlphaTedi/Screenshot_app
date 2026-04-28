@@ -17,7 +17,6 @@ struct NotchExpandedView: View {
             } else {
                 emptyState
             }
-            shortcutLegend
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear {
@@ -50,20 +49,6 @@ struct NotchExpandedView: View {
                 .animation(.spring(response: 0.38, dampingFraction: 0.62).delay(0.04), value: appeared)
         }
         .padding()
-    }
-
-    // MARK: - Shortcut Legend
-
-    private var shortcutLegend: some View {
-        HStack(spacing: 12) {
-            ShortcutBadge(keys: "\u{2303}\u{21E7}4", description: "Area")
-            ShortcutBadge(keys: "\u{2303}\u{21E7}3", description: "Schermo")
-            ShortcutBadge(keys: "\u{2303}\u{21E7}5", description: "Area + Edit")
-        }
-        .padding(.top, 2)
-        .padding(.bottom, 8)
-        .opacity(appeared ? 1.0 : 0.0)
-        .animation(.easeOut(duration: 0.2).delay(0.18), value: appeared)
     }
 
     private var galleryTransition: AnyTransition {
@@ -113,27 +98,6 @@ struct NotchExpandedView: View {
                 style: .continuous
             )
         )
-    }
-}
-
-// MARK: - Shortcut Badge
-
-struct ShortcutBadge: View {
-    let keys: String
-    let description: String
-
-    var body: some View {
-        HStack(spacing: 4) {
-            Text(keys)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .padding(.horizontal, 5)
-                .padding(.vertical, 2)
-                .background(Color.primary.opacity(0.12))
-                .cornerRadius(4)
-            Text(description)
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
-        }
     }
 }
 

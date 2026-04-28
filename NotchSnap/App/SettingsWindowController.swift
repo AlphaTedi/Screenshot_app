@@ -3,13 +3,10 @@ import SwiftUI
 
 // MARK: - SettingsWindowController
 //
-// Custom NSWindow that hosts SettingsView. Replaces SwiftUI's `Settings { }`
-// scene so we get full control over the chrome:
-//   • borderless-feeling window with traffic-light buttons floating top-left
-//   • no native title bar / toolbar strip
-//   • a single, generous rounded-corner mask (no AppKit-managed outer corners
-//     fighting our inner content mask)
-//   • frosted-glass background bleeds straight to the screen edge
+// Custom NSWindow that hosts SettingsView. The whole window is a single
+// frosted-glass surface with rounded corners — traffic-light buttons sit
+// at the standard top-left of THIS window, so they're inside the glass,
+// not floating in nowhere.
 
 @MainActor
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
@@ -37,28 +34,24 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             defer: false
         )
 
-        // Strip every bit of native title-bar chrome.
+        // Strip every bit of native title-bar chrome — the traffic lights
+        // remain visible at their default top-left position, but everything
+        // else (title, separator, toolbar) is gone.
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.titlebarSeparatorStyle = .none
 
-        // Transparent so our SwiftUI frosted-glass background reaches the edge.
+        // Transparent so our SwiftUI FrostedGlassBackground IS the window.
         window.backgroundColor = .clear
         window.isOpaque = false
         window.hasShadow = true
         window.isMovableByWindowBackground = true
 
-        // Kill the subtle blur the system draws in the titlebar region (the
-        // horizontal seam right under the traffic lights). We walk up to the
-        // titlebar container view and clear its layer background so it
-        // becomes truly transparent — letting our single FrostedGlassBackground
-        // bleed all the way to the top edge.
+        // Kill the system's titlebar blur so the glass is uniform top-to-bottom.
         if let closeButton = window.standardWindowButton(.closeButton),
            let titlebarContainer = closeButton.superview?.superview {
             titlebarContainer.wantsLayer = true
             titlebarContainer.layer?.backgroundColor = NSColor.clear.cgColor
-            // Walk further up to catch the NSThemeFrame's titlebar visual
-            // effect view, which on some macOS versions sits one level higher.
             for sibling in titlebarContainer.subviews {
                 sibling.wantsLayer = true
                 if String(describing: type(of: sibling)).contains("VisualEffect") {
@@ -67,7 +60,6 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             }
         }
 
-        // Keep the traffic-light buttons visible — only chrome we want.
         window.standardWindowButton(.closeButton)?.isHidden = false
         window.standardWindowButton(.miniaturizeButton)?.isHidden = false
         window.standardWindowButton(.zoomButton)?.isHidden = false
@@ -75,17 +67,19 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         self.init(window: window)
         window.delegate = self
 
-        // Host SettingsView and apply a single rounded-corner mask to the
-        // whole content view. Because the window background is clear and the
-        // title bar is transparent, this is the ONLY rounded rect on screen —
-        // no more "two corner radii" effect.
+        // Host SettingsView and apply the SINGLE rounded-corner mask of the
+        // whole window. The glass background, sidebar tint, and content all
+        // live inside this one shape.
         let host = NSHostingView(
             rootView: SettingsView().environmentObject(AppState.shared)
         )
         host.frame = NSRect(x: 0, y: 0, width: 880, height: 620)
         host.autoresizingMask = [.width, .height]
         host.wantsLayer = true
-        host.layer?.cornerRadius = 22
+        // Match the standard macOS window corner radius for the running OS.
+        // Tahoe (macOS 26+) uses larger continuous curves; earlier systems
+        // use the classic ~10pt radius.
+        host.layer?.cornerRadius = Self.systemWindowCornerRadius()
         host.layer?.cornerCurve = .continuous
         host.layer?.masksToBounds = true
 
@@ -94,10 +88,16 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 
     // MARK: - NSWindowDelegate
 
+    /// Standard macOS window corner radius for the current OS version.
+    /// Tahoe (macOS 26+) → 12pt; earlier systems → 10pt.
+    private static func systemWindowCornerRadius() -> CGFloat {
+        if #available(macOS 26.0, *) { return 12 }
+        return 10
+    }
+
     nonisolated func windowWillClose(_ notification: Notification) {
         Task { @MainActor in
             NotificationCenter.default.post(name: .settingsWindowClosed, object: nil)
-            // Drop the controller so the next open is a fresh window.
             SettingsWindowController.sharedController = nil
         }
     }

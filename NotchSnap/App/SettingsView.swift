@@ -12,52 +12,97 @@ struct SettingsView: View {
     @State private var selection: SettingsSection = .general
 
     var body: some View {
-        // iOS 26-style: two distinct floating glass panels with a gap
-        // between them. The window itself is transparent, so each panel
-        // casts its own shadow over the wallpaper.
-        HStack(spacing: 10) {
+        // Wispr-Flow-inspired layout:
+        //   • Outer frosted-glass surface fills the WHOLE window.
+        //     The traffic lights and the sidebar both sit on this surface,
+        //     so they share one continuous background top-to-bottom.
+        //   • The right "content" pane is an inset panel with its own
+        //     slightly different (lighter, more opaque) frosted tone, with
+        //     a rounded top-leading corner — visually the content sheet.
+        ZStack {
+            FrostedGlassBackground()
+                .ignoresSafeArea()
 
-            // LEFT PANEL — sidebar. Traffic lights live INSIDE this panel
-            // (positioned by SettingsWindowController on every layout).
-            SettingsSidebar(selection: $selection)
-                .frame(width: 220)
-                .background(GlassTile(cornerRadius: 20))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                )
-                .shadow(color: .black.opacity(0.25), radius: 22, y: 10)
+            HStack(spacing: 0) {
+                // LEFT: sidebar lives directly on the outer frosted glass.
+                // No background of its own → same surface as the traffic lights.
+                SettingsSidebar(selection: $selection)
+                    .frame(width: 220)
 
-            // RIGHT PANEL — content
-            ScrollView {
-                Group {
-                    switch selection {
-                    case .general:    GeneralSettingsView()
-                    case .appearance: AppearanceSettingsView()
-                    case .notch:      NotchSettingsView()
-                    case .capture:    CaptureSettingsView()
-                    case .shortcuts:  ShortcutsSettingsView()
-                    case .about:      AboutSettingsView()
+                // RIGHT: content sheet — inset panel with its own tone.
+                ContentPane {
+                    ScrollView {
+                        Group {
+                            switch selection {
+                            case .general:    GeneralSettingsView()
+                            case .appearance: AppearanceSettingsView()
+                            case .notch:      NotchSettingsView()
+                            case .capture:    CaptureSettingsView()
+                            case .shortcuts:  ShortcutsSettingsView()
+                            case .about:      AboutSettingsView()
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 28)
+                        .padding(.bottom, 28)
                     }
+                    .scrollContentBackground(.hidden)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(28)
+                // Leave a strip of outer glass above the content pane so the
+                // traffic lights breathe — like Wispr's top toolbar band.
+                .padding(.top, 44)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .scrollContentBackground(.hidden)
-            .background(GlassTile(cornerRadius: 20))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color.white.opacity(0.12), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.25), radius: 22, y: 10)
         }
-        .padding(10)
-        .frame(width: 900, height: 640)
+        .frame(width: 880, height: 620)
         .environmentObject(appState)
         .onDisappear {
             NotificationCenter.default.post(name: .settingsWindowClosed, object: nil)
         }
+    }
+}
+
+// MARK: - Content Pane (right side inset sheet)
+
+private struct ContentPane<Content: View>: View {
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        content()
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(
+                // Slightly lighter / more opaque tone than the outer glass,
+                // so the right pane reads as a distinct surface.
+                ZStack {
+                    Color.white.opacity(0.06)
+                    LinearGradient(
+                        colors: [Color.white.opacity(0.04), Color.clear],
+                        startPoint: .top, endPoint: .bottom
+                    )
+                }
+            )
+            .clipShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 16,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: 0,
+                    style: .continuous
+                )
+            )
+            .overlay(
+                // Hairline along the top + leading edges of the pane,
+                // outlining the seam where it meets the outer glass.
+                UnevenRoundedRectangle(
+                    topLeadingRadius: 16,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: 0,
+                    style: .continuous
+                )
+                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .allowsHitTesting(false)
+            )
     }
 }
 
@@ -99,8 +144,8 @@ private struct SettingsSidebar: View {
             Text("Settings")
                 .font(.system(size: 17, weight: .semibold))
                 .padding(.horizontal, 16)
-                .padding(.top, 44)
-                .padding(.bottom, 14)
+                .padding(.top, 18)
+                .padding(.bottom, 12)
 
             VStack(spacing: 3) {
                 ForEach(SettingsSection.allCases) { section in
@@ -114,25 +159,8 @@ private struct SettingsSidebar: View {
             Spacer()
         }
         .frame(maxHeight: .infinity)
-        // PURE TINT OVERLAY — no NSVisualEffectView of its own, so the blur
-        // beneath it is the same single sheet that fills the whole window.
-        // This kills the visible material seam at the sidebar boundary.
-        .background(
-            LinearGradient(
-                colors: [Color.white.opacity(0.06), Color.white.opacity(0.02)],
-                startPoint: .top, endPoint: .bottom
-            )
-        )
-        .overlay(
-            // Hairline right-edge separator — a single 1px line that runs
-            // edge-to-edge (top of window to bottom), replacing the old Divider.
-            Rectangle()
-                .fill(Color.white.opacity(0.10))
-                .frame(width: 1)
-                .frame(maxHeight: .infinity)
-                .frame(maxWidth: .infinity, alignment: .trailing)
-                .allowsHitTesting(false)
-        )
+        // No background of its own — the sidebar shares the outer
+        // frosted-glass surface with the traffic lights area above it.
     }
 }
 
