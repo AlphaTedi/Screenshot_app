@@ -7,6 +7,7 @@ struct ClipboardTile: View {
     @EnvironmentObject var appState: AppState
     @State private var isHovered = false
     @State private var justCopied = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -58,13 +59,17 @@ struct ClipboardTile: View {
         }
         .frame(width: 130, height: 100)
         .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .scaleEffect(isHovered ? 1.04 : 1.0)
+        .scaleEffect(isHovered && !reduceMotion ? 1.04 : 1.0)
         .shadow(
             color: .black.opacity(isHovered ? 0.35 : 0.15),
             radius: isHovered ? 10 : 4,
             y: isHovered ? 4 : 2
         )
-        .animation(.spring(duration: 0.2, bounce: 0.4), value: isHovered)
+        // Same spring as screenshot thumbnails so all tiles hover alike.
+        .animation(
+            reduceMotion ? .easeInOut(duration: 0.12) : NotchAnimation.thumbnailHover,
+            value: isHovered
+        )
         .onHover { hovering in
             isHovered = hovering
             if hovering {
@@ -161,7 +166,7 @@ struct ClipboardTile: View {
         HapticManager.shared.copyConfirmed()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation { justCopied = false }
+            withAnimation(.spring(duration: 0.25, bounce: 0.0)) { justCopied = false }
         }
     }
 }

@@ -4,6 +4,10 @@ import AppKit
 //
 // Every user-facing event maps to a specific haptic pattern + sound.
 // Gracefully degrades on Macs without Force Touch trackpad.
+//
+// Sounds are dispatched BEFORE the haptic guard: the "hapticFeedback"
+// toggle only controls trackpad taps, while sounds obey their own
+// "soundEffectsEnabled" toggle (checked inside SoundManager).
 
 final class HapticManager: @unchecked Sendable {
     static let shared = HapticManager()
@@ -17,18 +21,18 @@ final class HapticManager: @unchecked Sendable {
 
     /// Notch expands: transition to gallery visible
     func notchExpanded() {
+        SoundManager.shared.play(.expand)
         guard isEnabled else { return }
         // Single tap (like hover) — `.levelChange` produced a double-pulse
         // that felt "laggy / continuous".
         performer.perform(.generic, performanceTime: .now)
-        SoundManager.shared.play(.expand)
     }
 
     /// Notch collapses: gallery hidden
     func notchCollapsed() {
+        SoundManager.shared.play(.collapse)
         guard isEnabled else { return }
         performer.perform(.generic, performanceTime: .now)
-        SoundManager.shared.play(.collapse)
     }
 
     /// Hover enters notch zone: light single tap, NO sound (too frequent)
@@ -45,9 +49,9 @@ final class HapticManager: @unchecked Sendable {
 
     /// Screenshot captured: primary action
     func screenshotCaptured() {
+        SoundManager.shared.play(.capture)
         guard isEnabled else { return }
         performer.perform(.generic, performanceTime: .now)
-        SoundManager.shared.play(.capture)
     }
 
     func captureFeedback() { screenshotCaptured() }
@@ -56,19 +60,19 @@ final class HapticManager: @unchecked Sendable {
 
     /// Copy confirmed: double tap for "doppio click" feeling
     func copyConfirmed() {
+        SoundManager.shared.play(.copy)
         guard isEnabled else { return }
         performer.perform(.alignment, performanceTime: .now)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
             self?.performer.perform(.alignment, performanceTime: .now)
         }
-        SoundManager.shared.play(.copy)
     }
 
     /// New clipboard item added (passive event — very light)
     func clipboardItemAdded() {
+        SoundManager.shared.play(.clipboard)
         guard isEnabled else { return }
         performer.perform(.generic, performanceTime: .now)
-        SoundManager.shared.play(.clipboard)
     }
 
     /// Thumbnail selected (tap)
@@ -94,8 +98,8 @@ final class HapticManager: @unchecked Sendable {
     // MARK: - Delete
 
     func itemDeleted() {
+        SoundManager.shared.play(.delete)
         guard isEnabled else { return }
         performer.perform(.generic, performanceTime: .now)
-        SoundManager.shared.play(.delete)
     }
 }

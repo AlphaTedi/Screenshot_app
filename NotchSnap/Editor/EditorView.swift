@@ -139,7 +139,14 @@ struct EditorView: View {
                     .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.1), value: editorState.showCopyFeedback)
+        // Fast in, gentle out — the flash appears instantly but dissolves
+        // softly instead of cutting off.
+        .animation(
+            editorState.showCopyFeedback
+                ? .spring(duration: 0.15, bounce: 0.0)
+                : .spring(duration: 0.4, bounce: 0.0),
+            value: editorState.showCopyFeedback
+        )
         .background(KeyEventHandler(editorState: editorState, onClose: { handleClose() }))
     }
 

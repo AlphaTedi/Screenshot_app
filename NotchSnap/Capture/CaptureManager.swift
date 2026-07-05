@@ -162,8 +162,37 @@ class CaptureManager: ObservableObject {
 
         } catch CaptureError.cancelled {
             print("[CaptureManager] Capture cancelled by user")
+        } catch CaptureError.permissionDenied {
+            print("[CaptureManager] Permission denied — showing grant dialog")
+            showPermissionAlert()
         } catch {
             print("[CaptureManager] Error: \(error.localizedDescription)")
+        }
+    }
+
+    /// Permission missing at capture time: don't fail silently — explain and
+    /// route into the grant flow (register with TCC + open the exact pane).
+    private func showPermissionAlert() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Screen Recording permission needed"
+        alert.informativeText = "NotchSnap can't take screenshots until you allow Screen Recording in System Settings. If you just granted it, relaunch NotchSnap for it to take effect."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Relaunch NotchSnap")
+        alert.addButton(withTitle: "Cancel")
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            // Registers the app in the Screen Recording list (first time)
+            // and lands the user on the right pane.
+            CGRequestScreenCaptureAccess()
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                NSWorkspace.shared.open(url)
+            }
+        case .alertSecondButtonReturn:
+            PermissionManager.relaunchApp()
+        default:
+            break
         }
     }
 

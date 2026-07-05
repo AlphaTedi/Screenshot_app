@@ -4,45 +4,44 @@ import ScreenCaptureKit
 
 // MARK: - Permission Manager
 //
-// IMPORTANT: Never call CGRequestScreenCaptureAccess() or CGPreflightScreenCaptureAccess()
-// — these trigger the system popup every time. Instead, check permission passively
-// by attempting SCShareableContent and seeing if it succeeds.
+// API facts (they're commonly mixed up):
+//   • CGPreflightScreenCaptureAccess() — passive check, NEVER shows a prompt.
+//     This is the right way to poll for status.
+//   • CGRequestScreenCaptureAccess() — shows the system prompt ONCE (first
+//     call ever) and, critically, REGISTERS the app in System Settings →
+//     Privacy & Security → Screen Recording. Without this call the app may
+//     not even appear in that list, so "open Settings and toggle it on"
+//     fails because there is nothing to toggle.
+//
+// The smooth flow (Wispr Flow style):
+//   1. User clicks Grant → we call CGRequestScreenCaptureAccess() so the
+//      app is registered + the system shows its dialog with a direct
+//      "Open System Settings" button.
+//   2. We also deep-link to the Screen Recording pane as a fallback.
+//   3. We poll with the preflight check; the instant the toggle flips we
+//      show the granted state.
+//   4. macOS applies the grant to a running process only after relaunch —
+//      the caller offers a "Relaunch" button using `relaunchApp()`.
 
 @MainActor
 class PermissionManager: ObservableObject {
     @Published var hasScreenRecording: Bool = false
     @Published var hasAccessibility: Bool = true
-    @Published var currentStep: OnboardingStep = .screenRecording
     @Published var onboardingCompleted: Bool
 
     private var pollingTimer: Timer?
 
     private static let onboardingCompletedKey = "notchsnap.onboardingCompleted"
 
-    enum OnboardingStep: Int, CaseIterable {
-        case screenRecording
-        case tutorial
-        case complete
-    }
-
     init() {
         self.onboardingCompleted = UserDefaults.standard.bool(forKey: Self.onboardingCompletedKey)
+        checkAllPermissions()
     }
 
-    // MARK: - Check Permissions (passive — no system prompts)
+    // MARK: - Check Permissions (passive — never prompts)
 
     func checkAllPermissions() {
-        checkScreenRecording()
-    }
-
-    func checkScreenRecording() {
-        // Passive check via SCShareableContent — does NOT trigger system popup
-        Task {
-            if let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false),
-               !content.displays.isEmpty {
-                hasScreenRecording = true
-            }
-        }
+        hasScreenRecording = CGPreflightScreenCaptureAccess()
     }
 
     var allPermissionsGranted: Bool {
@@ -53,10 +52,23 @@ class PermissionManager: ObservableObject {
         !onboardingCompleted && !allPermissionsGranted
     }
 
-    // MARK: - Request Permissions (only opens System Preferences — no system popup)
+    // MARK: - Request Permissions
 
+    /// Registers the app with TCC (so it appears in the Screen Recording
+    /// list), triggers the one-time system prompt, and deep-links to the
+    /// exact Settings pane. Returns immediately; observe `hasScreenRecording`.
     func requestScreenRecording() {
-        // Only open System Preferences — do NOT call CGRequestScreenCaptureAccess()
+        // Already granted? Nothing to do.
+        guard !CGPreflightScreenCaptureAccess() else {
+            hasScreenRecording = true
+            return
+        }
+
+        // Registers the app in the TCC database + shows the system dialog
+        // (only the very first time; later calls are no-ops that return false).
+        CGRequestScreenCaptureAccess()
+
+        // Deep-link straight to the pane so the user lands on the toggle.
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
             NSWorkspace.shared.open(url)
         }
@@ -71,12 +83,12 @@ class PermissionManager: ObservableObject {
 
     func startPolling() {
         pollingTimer?.invalidate()
-        pollingTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+        pollingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.checkAllPermissions()
-                if self?.allPermissionsGranted == true {
-                    self?.pollingTimer?.invalidate()
-                    self?.pollingTimer = nil
+                guard let self else { return }
+                self.checkAllPermissions()
+                if self.allPermissionsGranted {
+                    self.stopPolling()
                 }
             }
         }
@@ -87,14 +99,18 @@ class PermissionManager: ObservableObject {
         pollingTimer = nil
     }
 
-    // MARK: - Advance Step
+    // MARK: - Relaunch
+    //
+    // Screen-recording grants only apply to a freshly launched process.
+    // Spawn a detached relaunch and terminate.
 
-    func advanceStep() {
-        guard let nextIndex = OnboardingStep.allCases.firstIndex(of: currentStep)
-                .map({ OnboardingStep.allCases.index(after: $0) }),
-              nextIndex < OnboardingStep.allCases.endIndex
-        else { return }
-        currentStep = OnboardingStep.allCases[nextIndex]
+    static func relaunchApp() {
+        let bundlePath = Bundle.main.bundlePath
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-n", bundlePath]
+        try? task.run()
+        NSApp.terminate(nil)
     }
 
     // MARK: - Complete Onboarding

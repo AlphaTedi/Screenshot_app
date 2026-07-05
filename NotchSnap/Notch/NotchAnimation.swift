@@ -22,13 +22,14 @@ enum NotchAnimation {
     static let hover = Animation.spring(response: 0.20, dampingFraction: 0.90)
 
     // CONTENT FADE-IN: content appears inside the notch
-    // delay 0.08s = waits until shape is already mid-expansion
+    // Spring (not bezier) so an interrupted appear reverses with velocity.
+    // delay 0.06s = waits until shape is already mid-expansion
     // Without this delay the content "fights" the shape — looks amateur
-    static let contentIn = Animation.easeOut(duration: 0.18).delay(0.08)
+    static let contentIn = Animation.spring(response: 0.32, dampingFraction: 0.85).delay(0.06)
 
     // CONTENT FADE-OUT: content disappears before the shape
     // Must finish BEFORE the shape starts collapsing
-    static let contentOut = Animation.easeIn(duration: 0.08)
+    static let contentOut = Animation.spring(response: 0.16, dampingFraction: 1.0)
 
     // CARD STAGGER: each thumbnail enters with increasing delay
     static func cardEntry(index: Int) -> Animation {
@@ -53,11 +54,13 @@ enum NotchAnimation {
     // NOTIFICATION THUMBNAIL: smooth slide-in (no bounce/scale)
     static let notificationThumbnail = Animation.spring(response: 0.32, dampingFraction: 0.72)
 
-    // NOTIFICATION CONTENT FADE-IN: appears 80ms after shape starts expanding
-    static let notificationContentIn = Animation.easeOut(duration: 0.16).delay(0.08)
+    // NOTIFICATION CONTENT FADE-IN: springs in just after the pill starts
+    // widening (the sequence in NotchController supplies the delay)
+    static let notificationContentIn = Animation.spring(response: 0.28, dampingFraction: 0.8)
 
-    // NOTIFICATION CONTENT FADE-OUT: fast disappear before contraction
-    static let notificationContentOut = Animation.easeIn(duration: 0.10)
+    // NOTIFICATION CONTENT FADE-OUT: fast critically-damped spring —
+    // disappears decisively, no bounce, blends if interrupted
+    static let notificationContentOut = Animation.spring(response: 0.14, dampingFraction: 1.0)
 
     // NOTIFICATION CONTRACT: fast, decisive, no bounce
     static let notificationContract = Animation.spring(response: 0.30, dampingFraction: 0.82)

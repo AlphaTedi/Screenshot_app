@@ -7,6 +7,7 @@ struct ScreenshotThumbnailView: View {
     let item: ScreenshotItem
     @EnvironmentObject var appState: AppState
     @State private var isHovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 4) {
@@ -58,14 +59,17 @@ struct ScreenshotThumbnailView: View {
             }
         }
         // Premium hover effect
-        .scaleEffect(isHovered ? 1.07 : 1.0)
+        .scaleEffect(isHovered && !reduceMotion ? 1.07 : 1.0)
         .brightness(isHovered ? 0.04 : 0)
         .shadow(
             color: .black.opacity(isHovered ? 0.40 : 0.18),
             radius: isHovered ? 14 : 6,
             y: isHovered ? 5 : 2
         )
-        .animation(NotchAnimation.thumbnailHover, value: isHovered)
+        .animation(
+            reduceMotion ? .easeInOut(duration: 0.12) : NotchAnimation.thumbnailHover,
+            value: isHovered
+        )
         .onHover { hovering in
             isHovered = hovering
             if hovering {

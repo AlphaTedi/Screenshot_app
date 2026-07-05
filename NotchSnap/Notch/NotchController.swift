@@ -328,8 +328,10 @@ class NotchController: ObservableObject {
                 notificationContentVisible = false
             }
 
-            // t=2180ms: contract the pill
-            try? await Task.sleep(nanoseconds: 100_000_000)
+            // t=2130ms: contract the pill while the content is still mid-fade —
+            // the two motions overlap so the close reads as one continuous
+            // gesture instead of fade… pause… shrink.
+            try? await Task.sleep(nanoseconds: 50_000_000)
             guard !Task.isCancelled else { return }
             withAnimation(NotchAnimation.notificationContract) {
                 state = .idle
@@ -566,7 +568,9 @@ class NotchController: ObservableObject {
 
         autoCollapseTimer = Timer.scheduledTimer(withTimeInterval: Double(seconds), repeats: false) { [weak self] _ in
             Task { @MainActor in
-                self?.collapse()
+                // Staged close (content fades, then shape) — same path as
+                // hover-out, so the timer close feels identical.
+                self?.triggerCollapse()
             }
         }
     }

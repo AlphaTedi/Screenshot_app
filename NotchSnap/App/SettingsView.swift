@@ -42,12 +42,22 @@ struct SettingsView: View {
                             case .about:      AboutSettingsView()
                             }
                         }
+                        // Each section arrives with a soft rise + fade,
+                        // keyed by `id` so the switch actually transitions.
+                        .id(selection)
+                        .transition(
+                            .asymmetric(
+                                insertion: .opacity.combined(with: .offset(y: 8)),
+                                removal: .opacity
+                            )
+                        )
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 28)
                         .padding(.top, 28)
                         .padding(.bottom, 28)
                     }
                     .scrollContentBackground(.hidden)
+                    .animation(.spring(response: 0.32, dampingFraction: 0.85), value: selection)
                 }
                 // Leave a strip of outer glass above the content pane so the
                 // traffic lights breathe — like Wispr's top toolbar band.
@@ -137,6 +147,7 @@ enum SettingsSection: String, CaseIterable, Identifiable {
 
 private struct SettingsSidebar: View {
     @Binding var selection: SettingsSection
+    @Namespace private var selectionNamespace
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -149,8 +160,14 @@ private struct SettingsSidebar: View {
 
             VStack(spacing: 3) {
                 ForEach(SettingsSection.allCases) { section in
-                    SidebarRow(section: section, isActive: selection == section) {
-                        selection = section
+                    SidebarRow(
+                        section: section,
+                        isActive: selection == section,
+                        namespace: selectionNamespace
+                    ) {
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            selection = section
+                        }
                     }
                 }
             }
@@ -167,6 +184,7 @@ private struct SettingsSidebar: View {
 private struct SidebarRow: View {
     let section: SettingsSection
     let isActive: Bool
+    let namespace: Namespace.ID
     let action: () -> Void
     @State private var hover = false
 
@@ -184,14 +202,24 @@ private struct SidebarRow: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 7)
-            .background(
-                RoundedRectangle(cornerRadius: 7, style: .continuous)
-                    .fill(isActive ? Color.accentColor : (hover ? Color.primary.opacity(0.06) : .clear))
-            )
+            .background {
+                // The active pill is ONE shared view that glides between
+                // rows (matchedGeometryEffect) instead of blinking off in
+                // one row and on in another.
+                if isActive {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.accentColor)
+                        .matchedGeometryEffect(id: "sidebar.selection", in: namespace)
+                } else if hover {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(Color.primary.opacity(0.06))
+                }
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+        .animation(.easeOut(duration: 0.12), value: hover)
     }
 }
 

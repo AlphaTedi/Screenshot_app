@@ -187,6 +187,10 @@ struct NotchShapeView: View {
     // MARK: - Squish state (Dynamic Island style)
     @State private var squishScaleX: CGFloat = 1.0
     @State private var squishScaleY: CGFloat = 1.0
+    // Sequencing task for the multi-phase squish. Cancelled and replaced on
+    // every state change so a rapid hover-in/hover-out can never leave a
+    // stale phase firing on an already-collapsed notch.
+    @State private var squishTask: Task<Void, Never>? = nil
 
     // MARK: - Body
 
@@ -221,6 +225,9 @@ struct NotchShapeView: View {
                     .padding(.top, notchSize.height + 4)
                     .opacity(contentVisible ? 1.0 : 0.0)
                     .scaleEffect(contentVisible ? 1.0 : 0.96)
+                    // Slight blur while appearing — the Dynamic Island "morph"
+                    // read: content resolves into focus rather than just fading.
+                    .blur(radius: contentVisible ? 0 : 6)
                     .animation(
                         reduceMotion ? .easeInOut(duration: 0.1) : NotchAnimation.contentIn,
                         value: contentVisible
@@ -245,6 +252,8 @@ struct NotchShapeView: View {
                     .frame(width: pillWidth - currentFilletRadius * 2, height: notchSize.height - 4)
                     .padding(.top, 2)
                     .opacity(notificationContentVisible ? 1.0 : 0.0)
+                    .scaleEffect(notificationContentVisible ? 1.0 : 0.9)
+                    .blur(radius: notificationContentVisible ? 0 : 4)
                     .animation(
                         reduceMotion ? .easeInOut(duration: 0.1) : NotchAnimation.notificationContentIn,
                         value: notificationContentVisible
@@ -256,58 +265,66 @@ struct NotchShapeView: View {
     }
 
     // MARK: - Squish Animation (multi-phase spring sequence)
+    //
+    // Every phase runs inside ONE cancellable Task. When the state changes
+    // mid-sequence the old task is cancelled, so late phases can never fire
+    // on a notch that has already moved on — springs then blend from the
+    // current (mid-flight) scale with preserved velocity.
 
     private func runSquishAnimation(for newState: NotchState) {
-        switch newState {
-        case .expanded:
-            // Phase 1: anticipation squish (80ms)
-            withAnimation(.spring(duration: 0.08, bounce: 0.0)) {
-                squishScaleX = 0.96
-                squishScaleY = 1.04
-            }
-            // Phase 2: overshoot (180ms later)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) {
+        squishTask?.cancel()
+        squishTask = Task { @MainActor in
+            switch newState {
+            case .expanded:
+                // Phase 1: anticipation squish (80ms)
+                withAnimation(.spring(duration: 0.08, bounce: 0.0)) {
+                    squishScaleX = 0.96
+                    squishScaleY = 1.04
+                }
+                // Phase 2: overshoot
+                try? await Task.sleep(nanoseconds: 80_000_000)
+                guard !Task.isCancelled else { return }
                 withAnimation(.spring(duration: 0.25, bounce: 0.3)) {
                     squishScaleX = 1.02
                     squishScaleY = 0.99
                 }
-            }
-            // Phase 3: settle (350ms later)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
+                // Phase 3: settle
+                try? await Task.sleep(nanoseconds: 180_000_000)
+                guard !Task.isCancelled else { return }
                 withAnimation(.spring(duration: 0.4, bounce: 0.1)) {
                     squishScaleX = 1.0
                     squishScaleY = 1.0
                 }
-            }
 
-        case .idle:
-            // Phase 1: micro expand
-            withAnimation(.spring(duration: 0.12, bounce: 0.2)) {
-                squishScaleX = 1.02
-                squishScaleY = 0.98
-            }
-            // Phase 2: settle
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            case .idle:
+                // Phase 1: micro expand
+                withAnimation(.spring(duration: 0.12, bounce: 0.2)) {
+                    squishScaleX = 1.02
+                    squishScaleY = 0.98
+                }
+                // Phase 2: settle
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                guard !Task.isCancelled else { return }
                 withAnimation(.spring(duration: 0.28, bounce: 0.0)) {
                     squishScaleX = 1.0
                     squishScaleY = 1.0
                 }
-            }
 
-        case .hovering:
-            // Micro breath
-            withAnimation(.spring(duration: 0.22, bounce: 0.3)) {
-                squishScaleX = 1.0
-                squishScaleY = 1.0
-            }
+            case .hovering:
+                // Micro breath
+                withAnimation(.spring(duration: 0.22, bounce: 0.3)) {
+                    squishScaleX = 1.0
+                    squishScaleY = 1.0
+                }
 
-        case .captureNotification:
-            // Horizontal stretch — pill widens
-            withAnimation(.spring(duration: 0.12, bounce: 0.2)) {
-                squishScaleX = 1.03
-                squishScaleY = 0.97
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            case .captureNotification:
+                // Horizontal stretch — pill widens
+                withAnimation(.spring(duration: 0.12, bounce: 0.2)) {
+                    squishScaleX = 1.03
+                    squishScaleY = 0.97
+                }
+                try? await Task.sleep(nanoseconds: 120_000_000)
+                guard !Task.isCancelled else { return }
                 withAnimation(.spring(duration: 0.3, bounce: 0.1)) {
                     squishScaleX = 1.0
                     squishScaleY = 1.0

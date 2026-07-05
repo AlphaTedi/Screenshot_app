@@ -6,6 +6,7 @@ import ScreenCaptureKit
 struct OnboardingFlowView: View {
     @State private var currentStep = 0
     @AppStorage("onboardingVersion") var onboardingVersion: Int = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let totalSteps = 3
 
@@ -35,6 +36,13 @@ struct OnboardingFlowView: View {
             StepDotIndicator(current: currentStep, total: totalSteps)
                 .padding(.bottom, 14)
         }
+        // Reduce Motion: flatten every staggered spring in the flow into a
+        // quick fade — one override here instead of gating each subview.
+        .transaction { t in
+            if reduceMotion, t.animation != nil {
+                t.animation = .easeInOut(duration: 0.15)
+            }
+        }
     }
 
     private var stepTransition: AnyTransition {
@@ -45,12 +53,12 @@ struct OnboardingFlowView: View {
     }
 
     func advanceStep() {
-        SoundPlayer.shared.play("step_advance")
+        SoundManager.shared.play(.stepAdvance)
         withAnimation { currentStep += 1 }
     }
 
     func completeOnboarding() {
-        SoundPlayer.shared.play("onboarding_complete")
+        SoundManager.shared.play(.onboardingComplete)
         NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
         onboardingVersion = 1
         OnboardingWindowController.dismiss()
@@ -204,7 +212,9 @@ struct OnboardingWelcomeView: View {
 
 struct OnboardingPermissionsView: View {
     var onContinue: () -> Void
-    @State var screenRecordingGranted = false
+    @State private var screenRecordingGranted = false
+    @State private var hasAskedOnce = false
+    @State private var pollTimer: Timer?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -226,14 +236,19 @@ struct OnboardingPermissionsView: View {
                     icon: "camera.viewfinder",
                     iconColor: .blue,
                     title: "Screen Recording",
-                    description: "Needed to capture screenshots. We never record or save your screen.",
+                    description: screenRecordingGranted
+                        ? "You're all set. NotchSnap can capture screenshots."
+                        : "Needed to capture screenshots. We never record or save your screen.",
                     isGranted: screenRecordingGranted,
-                    onGrant: {
-                        NSWorkspace.shared.open(
-                            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
-                        )
-                    }
+                    onGrant: requestScreenRecording
                 )
+
+                if hasAskedOnce && !screenRecordingGranted {
+                    Text("Flip the NotchSnap toggle in System Settings — this window updates by itself.")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .transition(.opacity)
+                }
             }
             .padding(.horizontal, 32)
 
@@ -261,30 +276,54 @@ struct OnboardingPermissionsView: View {
             }
             .padding(.bottom, 36)
         }
-        .onAppear { startPolling() }
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: screenRecordingGranted)
+        .animation(.spring(response: 0.35, dampingFraction: 0.85), value: hasAskedOnce)
+        .onAppear {
+            checkScreenRecording()
+            startPolling()
+        }
+        .onDisappear {
+            pollTimer?.invalidate()
+            pollTimer = nil
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            // User came back from System Settings — re-check immediately.
             checkScreenRecording()
         }
     }
 
+    /// The Wispr-style grant flow:
+    /// 1. CGRequestScreenCaptureAccess() registers NotchSnap in the Screen
+    ///    Recording list (without this the toggle doesn't exist to flip!)
+    ///    and shows the system dialog the very first time.
+    /// 2. Deep-link to the exact Settings pane as well, so the user lands
+    ///    on the right screen even if they dismiss the system dialog.
+    /// 3. The poll below picks up the grant and flips the card live.
+    private func requestScreenRecording() {
+        hasAskedOnce = true
+        CGRequestScreenCaptureAccess()
+        NSWorkspace.shared.open(
+            URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")!
+        )
+    }
+
     private func startPolling() {
-        checkScreenRecording()
-        // Poll every 2s for permission changes
-        Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { _ in
+        pollTimer?.invalidate()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             Task { @MainActor in checkScreenRecording() }
         }
     }
 
     private func checkScreenRecording() {
-        Task {
-            if let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false),
-               !content.displays.isEmpty {
-                if !screenRecordingGranted {
-                    screenRecordingGranted = true
-                    SoundPlayer.shared.play("permission_granted")
-                    NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
-                }
-            }
+        // CGPreflightScreenCaptureAccess is the passive check — instant,
+        // synchronous, and never shows a prompt.
+        let granted = CGPreflightScreenCaptureAccess()
+        if granted && !screenRecordingGranted {
+            screenRecordingGranted = true
+            pollTimer?.invalidate()
+            pollTimer = nil
+            SoundManager.shared.play(.permissionGranted)
+            NSHapticFeedbackManager.defaultPerformer.perform(.alignment, performanceTime: .now)
         }
     }
 }

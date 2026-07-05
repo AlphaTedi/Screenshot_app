@@ -154,6 +154,11 @@ class AreaSelectorNSView: NSView {
         self.isInlineMode = isInlineMode
         self.completion = completion
         super.init(frame: .zero)
+        // Layer-backed: without this every mouse move re-rasterizes the whole
+        // screen-sized view on the CPU (very laggy on Retina). With a layer,
+        // draw(_:) renders into a GPU-composited backing store instead.
+        wantsLayer = true
+        layerContentsRedrawPolicy = .onSetNeedsDisplay
         setupTrackingArea()
         setupLocalKeyMonitor()
     }
