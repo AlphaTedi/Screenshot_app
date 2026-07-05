@@ -196,13 +196,18 @@ class NotchController: ObservableObject {
     }
 
     func triggerCollapse() {
+        // Guard against re-entry: mouse-move events call this continuously
+        // while the cursor is outside the panel. Without the guard, every
+        // event spawned a new collapse task and fired sound + haptic —
+        // the "machine-gun" glitch. One collapse at a time, only from
+        // the expanded state.
+        guard state == .expanded, collapseTask == nil else { return }
+
         expandTask?.cancel()
         expandTask = nil
         hoverTask?.cancel()
 
         collapseTask = Task { @MainActor in
-            HapticManager.shared.notchCollapsed()
-
             // Step 1: hide content FIRST (immediate)
             withAnimation(NotchAnimation.contentOut) {
                 contentVisible = false
@@ -211,6 +216,10 @@ class NotchController: ObservableObject {
             // Step 2: after 80ms close the shape
             try? await Task.sleep(nanoseconds: 80_000_000) // 80ms
             guard !Task.isCancelled else { return }
+
+            // Feedback only when the collapse actually happens — a collapse
+            // cancelled by hovering back in must stay silent.
+            HapticManager.shared.notchCollapsed()
 
             withAnimation(NotchAnimation.collapse) {
                 state = .idle
@@ -227,6 +236,8 @@ class NotchController: ObservableObject {
             (panel as? NotchPanel)?.allowKey = false
             panel?.resignKey()
             panel?.ignoresMouseEvents = true
+
+            collapseTask = nil
         }
     }
 
@@ -617,11 +628,14 @@ class NotchController: ObservableObject {
 
     private func calculateMaxPanelFrame(screen: NSScreen) -> NSRect {
         let notchRect = calculateNotchRect(screen: screen)
+        // +40 headroom so the shape can grow for the filter bar without
+        // being cut off by the panel bounds.
+        let height = expandedSize.height + 40
         return NSRect(
             x: notchRect.midX - expandedSize.width / 2,
-            y: screen.frame.maxY - expandedSize.height,
+            y: screen.frame.maxY - height,
             width: expandedSize.width,
-            height: expandedSize.height
+            height: height
         )
     }
 }

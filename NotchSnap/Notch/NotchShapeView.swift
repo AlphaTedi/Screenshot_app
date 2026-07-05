@@ -88,6 +88,9 @@ struct NotchShapeView: View {
     @Binding var state: NotchState
     let notchSize: CGSize
     let expandedSize: CGSize
+    /// Extra height added in the expanded state (e.g. to make room for the
+    /// filter-chip bar) so the gallery never gets cramped or clipped.
+    var extraExpandedHeight: CGFloat = 0
     let hasPhysicalNotch: Bool
     var screenshotJustArrived: Bool = false
     var contentVisible: Bool = false
@@ -129,7 +132,7 @@ struct NotchShapeView: View {
             switch state {
             case .idle:                 return notchSize.height
             case .hovering:             return notchSize.height + 6
-            case .expanded:             return expandedSize.height
+            case .expanded:             return expandedSize.height + extraExpandedHeight
             case .captureNotification:  return notchSize.height
             }
         }()
@@ -207,6 +210,8 @@ struct NotchShapeView: View {
             .scaleEffect(x: squishScaleX, y: squishScaleY, anchor: .top)
             .animation(shapeAnimation, value: state)
             .animation(NotchAnimation.bounce, value: screenshotJustArrived)
+            // Height change when the filter bar (dis)appears mid-session
+            .animation(NotchAnimation.expand, value: extraExpandedHeight)
             .onChange(of: state) { newState in
                 if !reduceMotion {
                     runSquishAnimation(for: newState)
@@ -221,7 +226,8 @@ struct NotchShapeView: View {
             // they had been "cut").
             if state == .expanded {
                 content
-                    .frame(width: expandedSize.width - 32, height: expandedSize.height - notchSize.height - 8)
+                    .frame(width: expandedSize.width - 32,
+                           height: expandedSize.height + extraExpandedHeight - notchSize.height - 8)
                     .padding(.top, notchSize.height + 4)
                     .opacity(contentVisible ? 1.0 : 0.0)
                     .scaleEffect(contentVisible ? 1.0 : 0.96)

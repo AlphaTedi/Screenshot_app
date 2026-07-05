@@ -35,9 +35,16 @@ final class HapticManager: @unchecked Sendable {
         performer.perform(.generic, performanceTime: .now)
     }
 
+    // Hover can flutter (hover → idle → hover) when the cursor skims the
+    // trigger-zone edge — rate-limit the tap so it can't buzz.
+    private var lastHoverTap: Date = .distantPast
+
     /// Hover enters notch zone: light single tap, NO sound (too frequent)
     func notchHoverEntered() {
         guard isEnabled else { return }
+        let now = Date()
+        guard now.timeIntervalSince(lastHoverTap) > 0.25 else { return }
+        lastHoverTap = now
         performer.perform(.generic, performanceTime: .now)
     }
 

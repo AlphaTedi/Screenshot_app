@@ -11,6 +11,8 @@ struct NotchRootView: View {
             state: $controller.state,
             notchSize: controller.notchSize,
             expandedSize: controller.expandedSize,
+            // Grow to fit the filter-chip bar when it's visible.
+            extraExpandedHeight: appState.showsNotchFilterBar ? 34 : 0,
             hasPhysicalNotch: controller.hasPhysicalNotch,
             screenshotJustArrived: controller.screenshotJustArrived,
             contentVisible: controller.contentVisible,

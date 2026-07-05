@@ -16,6 +16,12 @@ final class SoundManager: @unchecked Sendable {
 
     private var cache: [SoundName: NSSound] = [:]
 
+    // Rate limiting — even if callers misbehave, the same sound never
+    // fires more often than this. Prevents "machine-gun" stutter when an
+    // event (e.g. mouse-move-driven collapse) retriggers rapidly.
+    private var lastPlayed: [SoundName: Date] = [:]
+    private let minInterval: TimeInterval = 0.25
+
     private init() {
         // Pre-load custom sounds from bundle
         for name in SoundName.allCases {
@@ -33,6 +39,13 @@ final class SoundManager: @unchecked Sendable {
 
     func play(_ name: SoundName) {
         guard isUserEnabled else { return }
+
+        // Drop plays that arrive too soon after the previous one.
+        let now = Date()
+        if let last = lastPlayed[name], now.timeIntervalSince(last) < minInterval {
+            return
+        }
+        lastPlayed[name] = now
 
         let vol = name.volume
 

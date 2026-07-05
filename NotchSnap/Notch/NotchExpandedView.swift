@@ -2,6 +2,32 @@ import SwiftUI
 
 // MARK: - Content filter
 
+// Shared with NotchRootView, which needs to know whether the filter bar is
+// visible so the notch shape can grow to make room for it.
+extension AppState {
+    var notchAvailableFilters: [NotchContentFilter] {
+        var result: [NotchContentFilter] = []
+        if !screenshots.isEmpty
+            || clipboardItems.contains(where: { $0.type == .screenshot || $0.type == .image }) {
+            result.append(.screenshots)
+        }
+        if clipboardItems.contains(where: { $0.type == .url }) {
+            result.append(.links)
+        }
+        if clipboardItems.contains(where: {
+            $0.type != .url && $0.type != .screenshot && $0.type != .image
+        }) {
+            result.append(.text)
+        }
+        return result
+    }
+
+    /// Only show the bar when there's more than one category to switch between.
+    var showsNotchFilterBar: Bool {
+        notchAvailableFilters.count >= 2
+    }
+}
+
 enum NotchContentFilter: String, CaseIterable, Identifiable {
     case all, screenshots, links, text
     var id: String { rawValue }
@@ -60,28 +86,8 @@ struct NotchExpandedView: View {
         }
     }
 
-    /// Which category filters actually have content (All is implicit).
-    private var availableFilters: [NotchContentFilter] {
-        var result: [NotchContentFilter] = []
-        if !appState.screenshots.isEmpty
-            || appState.clipboardItems.contains(where: { $0.type == .screenshot || $0.type == .image }) {
-            result.append(.screenshots)
-        }
-        if appState.clipboardItems.contains(where: { $0.type == .url }) {
-            result.append(.links)
-        }
-        if appState.clipboardItems.contains(where: {
-            $0.type != .url && $0.type != .screenshot && $0.type != .image
-        }) {
-            result.append(.text)
-        }
-        return result
-    }
-
-    /// Only show the bar when there's more than one category to switch between.
-    private var showsFilterBar: Bool {
-        availableFilters.count >= 2
-    }
+    private var availableFilters: [NotchContentFilter] { appState.notchAvailableFilters }
+    private var showsFilterBar: Bool { appState.showsNotchFilterBar }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -114,7 +120,7 @@ struct NotchExpandedView: View {
     // MARK: - Filter bar
 
     private var filterBar: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 8) {
             ForEach([NotchContentFilter.all] + availableFilters) { f in
                 FilterChip(filter: f, isActive: filter == f) {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
@@ -125,8 +131,7 @@ struct NotchExpandedView: View {
             Spacer()
         }
         .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 2)
+        .padding(.top, 12)
     }
 
     // MARK: - Empty State
@@ -186,6 +191,8 @@ struct NotchExpandedView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 12)
         }
+        // Clear gap between the chips and the previews below them.
+        .padding(.top, showsFilterBar ? 4 : 0)
         .animation(NotchAnimation.newScreenshot, value: appState.screenshots.count)
         .animation(NotchAnimation.newScreenshot, value: appState.clipboardItems.count)
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: filter)
