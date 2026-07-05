@@ -49,9 +49,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Start clipboard monitoring
         ClipboardMonitor.shared.startMonitoring()
 
-        // Universal Shelf: bottom-left landing pad (reveals on adds/hot corner)
-        ShelfPanelController.shared.setup()
-
         // Restore pinned clipboard items + snippets
         AppState.shared.loadClipboardArchive()
 

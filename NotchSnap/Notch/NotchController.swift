@@ -46,8 +46,8 @@ class NotchController: ObservableObject {
 
     // Geometry — @AppStorage for live Settings preview propagation
     @AppStorage("notchCornerRadius")   var cornerRadius: Double = 10
-    @AppStorage("notchExpandedWidth")  var expandedWidth: Double = 600
-    @AppStorage("notchExpandedHeight") var expandedHeight: Double = 180
+    @AppStorage("notchExpandedWidth")  var expandedWidth: Double = 680
+    @AppStorage("notchExpandedHeight") var expandedHeight: Double = 200
 
     private(set) var notchSize: CGSize = .zero
     private(set) var hasPhysicalNotch: Bool = false

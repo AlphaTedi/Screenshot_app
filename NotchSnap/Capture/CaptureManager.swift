@@ -157,10 +157,11 @@ class CaptureManager: ObservableObject {
                 // Editor flow: the editor IS the preview — no corner thumbnail.
                 EditorWindowController.shared.open(item: item)
             } else {
-                // Quick-capture flow: the screenshot lands on the Shelf and
-                // the bottom-left strip reveals itself — drag it away, copy,
-                // pin, or let it expire. The notch stays the management center.
-                ShelfStore.shared.addScreenshot(item)
+                // Quick-capture flow: Dynamic Island pill confirms the shot;
+                // the screenshot lives in the notch's Shots section for
+                // drag-out and management. (The in-notch tray is reserved
+                // for files the user drags in.)
+                NotchController.shared.showNewScreenshot()
             }
 
         } catch CaptureError.cancelled {

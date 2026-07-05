@@ -7,9 +7,14 @@ import SwiftUI
 extension AppState {
     var notchAvailableFilters: [NotchContentFilter] {
         var result: [NotchContentFilter] = []
+        // Tray is always offered — its empty state IS the drop-zone invitation.
+        result.append(.tray)
         if !screenshots.isEmpty
             || clipboardItems.contains(where: { $0.type == .screenshot || $0.type == .image }) {
             result.append(.screenshots)
+        }
+        if !snippets.isEmpty {
+            result.append(.snippets)
         }
         if clipboardItems.contains(where: { $0.type == .url }) {
             result.append(.links)
@@ -29,13 +34,15 @@ extension AppState {
 }
 
 enum NotchContentFilter: String, CaseIterable, Identifiable {
-    case all, screenshots, links, text
+    case all, tray, screenshots, snippets, links, text
     var id: String { rawValue }
 
     var label: String {
         switch self {
         case .all:         return "All"
+        case .tray:        return "Tray"
         case .screenshots: return "Shots"
+        case .snippets:    return "Snippets"
         case .links:       return "Links"
         case .text:        return "Text"
         }
@@ -44,7 +51,9 @@ enum NotchContentFilter: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .all:         return "square.grid.2x2"
+        case .tray:        return "tray.full"
         case .screenshots: return "camera.viewfinder"
+        case .snippets:    return "text.badge.star"
         case .links:       return "link"
         case .text:        return "text.alignleft"
         }
@@ -55,12 +64,15 @@ enum NotchContentFilter: String, CaseIterable, Identifiable {
 
 struct NotchExpandedView: View {
     @EnvironmentObject var appState: AppState
+    @ObservedObject private var shelf = ShelfStore.shared
     @State private var appeared = false
     @State private var filter: NotchContentFilter = .all
     @State private var shelfDropTargeted = false
 
     private var hasContent: Bool {
         !appState.screenshots.isEmpty || !appState.clipboardItems.isEmpty
+            || !shelf.items.isEmpty || !appState.snippets.isEmpty
+            || !appState.pinnedItems.isEmpty
     }
 
     // MARK: - Filtered collections
@@ -68,7 +80,7 @@ struct NotchExpandedView: View {
     private var filteredScreenshots: [ScreenshotItem] {
         switch filter {
         case .all, .screenshots: return appState.screenshots
-        case .links, .text:      return []
+        default:                 return []
         }
     }
 
@@ -84,8 +96,13 @@ struct NotchExpandedView: View {
             return appState.clipboardItems.filter {
                 $0.type != .url && $0.type != .screenshot && $0.type != .image
             }
+        case .tray, .snippets:
+            return []
         }
     }
+
+    private var showsTraySection: Bool { filter == .all || filter == .tray }
+    private var showsSnippetSection: Bool { filter == .all || filter == .snippets }
 
     private var availableFilters: [NotchContentFilter] { appState.notchAvailableFilters }
     private var showsFilterBar: Bool { appState.showsNotchFilterBar }
@@ -96,17 +113,26 @@ struct NotchExpandedView: View {
                 if showsFilterBar {
                     filterBar
                 }
-                galleryView
+                if filter == .tray && shelf.items.isEmpty {
+                    TrayEmptyState()
+                } else {
+                    galleryView
+                }
             } else {
                 emptyState
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // The expanded notch is a Shelf drop target: files, images, text and
-        // links dragged here land on the Shelf (bottom-left strip).
+        // The expanded notch is the tray's drop target: files, images, text
+        // and links dragged here fall into the Tray section.
         .onDrop(of: ShelfDropHandler.acceptedTypes, isTargeted: $shelfDropTargeted) { providers in
             let handled = ShelfDropHandler.handle(providers: providers)
-            if handled { ShelfPanelController.shared.reveal() }
+            if handled {
+                // Jump to the tray so the user sees the item fall in.
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                    filter = .all
+                }
+            }
             return handled
         }
         .overlay(
@@ -145,6 +171,13 @@ struct NotchExpandedView: View {
                 }
             }
             Spacer()
+
+            // "Clean up the tray" — clears everything unpinned.
+            if !shelf.items.isEmpty && (filter == .all || filter == .tray) {
+                ClearTrayChip {
+                    ShelfStore.shared.clearUnpinned()
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
@@ -161,7 +194,7 @@ struct NotchExpandedView: View {
                 .opacity(appeared ? 1.0 : 0.0)
                 .animation(.spring(response: 0.38, dampingFraction: 0.62), value: appeared)
 
-            Text("No content yet.\nTake a screenshot or copy something.")
+            Text("No content yet.\nTake a screenshot, copy something, or drop a file.")
                 .font(.system(size: 11))
                 .foregroundColor(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
@@ -185,6 +218,17 @@ struct NotchExpandedView: View {
         )
     }
 
+    /// Dropped files "fall into" the notch: they arrive from above,
+    /// slightly oversized, and spring down into place.
+    private var trayTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: .top)
+                .combined(with: .scale(scale: 1.18, anchor: .top))
+                .combined(with: .opacity),
+            removal: .scale(scale: 0.8).combined(with: .opacity)
+        )
+    }
+
     // MARK: - Gallery — screenshots first, then clipboard items
 
     private var galleryView: some View {
@@ -194,30 +238,40 @@ struct NotchExpandedView: View {
         // Lazy stack diffing + transition() handle insert/remove animation cleanly.
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(alignment: .center, spacing: 10) {
-                ForEach(filteredScreenshots) { item in
-                    ScreenshotThumbnailView(item: item)
-                        .transition(galleryTransition)
-                }
-
-                // Persistent sections (Snippets → Pinned) live under "All",
-                // visually separated from the rolling Recent history.
-                if filter == .all {
-                    if !filteredScreenshots.isEmpty {
-                        sectionDivider
-                    }
-
+                // 1. SNIPPETS — always the front spot: the things you reuse
+                //    every day should be one glance away.
+                if showsSnippetSection {
                     ForEach(appState.snippets) { item in
                         ClipboardTile(item: item)
                             .transition(galleryTransition)
                     }
                     NewSnippetTile()
+                    if filter == .all { sectionDivider }
+                }
 
+                // 2. TRAY — files in transit; they "fall in" when dropped.
+                if showsTraySection {
+                    ForEach(shelf.items) { item in
+                        TrayCard(item: item)
+                            .transition(trayTransition)
+                    }
+                    if filter == .all && !shelf.items.isEmpty { sectionDivider }
+                }
+
+                // 3. SHOTS
+                ForEach(filteredScreenshots) { item in
+                    ScreenshotThumbnailView(item: item)
+                        .transition(galleryTransition)
+                }
+
+                // 4. PINNED + RECENT clipboard
+                if filter == .all {
                     ForEach(appState.pinnedItems) { item in
                         ClipboardTile(item: item)
                             .transition(galleryTransition)
                     }
-
-                    if !filteredClipboardItems.isEmpty {
+                    if (!filteredScreenshots.isEmpty || !appState.pinnedItems.isEmpty)
+                        && !filteredClipboardItems.isEmpty {
                         sectionDivider
                     }
                 } else if !filteredScreenshots.isEmpty && !filteredClipboardItems.isEmpty {
@@ -236,6 +290,8 @@ struct NotchExpandedView: View {
         .padding(.top, showsFilterBar ? 4 : 0)
         .animation(NotchAnimation.newScreenshot, value: appState.screenshots.count)
         .animation(NotchAnimation.newScreenshot, value: appState.clipboardItems.count)
+        // Bouncier spring for the tray so drops visibly "land"
+        .animation(.spring(response: 0.42, dampingFraction: 0.6), value: shelf.items.count)
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: filter)
         .clipShape(
             UnevenRoundedRectangle(
@@ -246,6 +302,35 @@ struct NotchExpandedView: View {
                 style: .continuous
             )
         )
+    }
+}
+
+// MARK: - Clear Tray Chip
+
+private struct ClearTrayChip: View {
+    let action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: "paintbrush")
+                    .font(.system(size: 9, weight: .semibold))
+                Text("Clear")
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .foregroundStyle(Color.white.opacity(hover ? 0.95 : 0.55))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.white.opacity(hover ? 0.16 : 0.06))
+            )
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
+        .animation(.easeOut(duration: 0.12), value: hover)
     }
 }
 

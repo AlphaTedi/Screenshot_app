@@ -518,12 +518,12 @@ enum NotchSizePreset: String, CaseIterable, Identifiable {
     }
     var width: Double {
         switch self {
-        case .compact: 480; case .wide: 600; case .extraWide: 740
+        case .compact: 520; case .wide: 680; case .extraWide: 820
         }
     }
     var height: Double {
         switch self {
-        case .compact: 150; case .wide: 180; case .extraWide: 220
+        case .compact: 160; case .wide: 200; case .extraWide: 240
         }
     }
     var radius: Double { 10 }
@@ -539,8 +539,8 @@ enum NotchSizePreset: String, CaseIterable, Identifiable {
 struct NotchSettingsView: View {
     @EnvironmentObject var appState: AppState
     @AppStorage("notchCornerRadius")   private var cornerRadius: Double = 10
-    @AppStorage("notchExpandedWidth")  private var expandedWidth: Double = 600
-    @AppStorage("notchExpandedHeight") private var expandedHeight: Double = 180
+    @AppStorage("notchExpandedWidth")  private var expandedWidth: Double = 680
+    @AppStorage("notchExpandedHeight") private var expandedHeight: Double = 200
 
     private var currentPreset: NotchSizePreset {
         NotchSizePreset.match(width: expandedWidth, height: expandedHeight)

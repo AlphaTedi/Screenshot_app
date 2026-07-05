@@ -15,8 +15,9 @@ final class ShelfStore: ObservableObject {
 
     @Published private(set) var items: [ShelfItem] = []
 
-    // PRD defaults
-    private let defaultExpiry: TimeInterval = 3600   // 1 hour
+    // Tray rules: items are "in transit", so cleanup is aggressive —
+    // 10 minutes unless pinned. Capacity keeps the notch tidy.
+    private let defaultExpiry: TimeInterval = 600    // 10 minutes
     private let capacity = 12
 
     private var saveWork: Task<Void, Never>?
@@ -187,6 +188,18 @@ final class ShelfStore: ObservableObject {
                 }
             }
         }
+        scheduleSave()
+    }
+
+    /// "Clean up the tray" button: removes everything that isn't pinned.
+    func clearUnpinned() {
+        let removable = items.filter { !$0.isPinned }
+        guard !removable.isEmpty else { return }
+        for item in removable { deletePayload(item) }
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+            items.removeAll { !$0.isPinned }
+        }
+        HapticManager.shared.itemDeleted()
         scheduleSave()
     }
 
