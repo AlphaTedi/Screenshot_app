@@ -128,9 +128,9 @@ struct NotchExpandedView: View {
         .onDrop(of: ShelfDropHandler.acceptedTypes, isTargeted: $shelfDropTargeted) { providers in
             let handled = ShelfDropHandler.handle(providers: providers)
             if handled {
-                // Jump to the tray so the user sees the item fall in.
+                // Stay on the Tray so the user sees the item fall in.
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                    filter = .all
+                    filter = .tray
                 }
             }
             return handled
@@ -148,6 +148,10 @@ struct NotchExpandedView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 appeared = true
             }
+            consumePendingFilter()
+        }
+        .onChange(of: appState.pendingNotchFilter) { _ in
+            consumePendingFilter()
         }
         .onDisappear {
             appeared = false
@@ -157,6 +161,15 @@ struct NotchExpandedView: View {
             // the user is never stuck on a hidden filter.
             if !shows { filter = .all }
         }
+    }
+
+    /// Apply a one-shot filter request (e.g. drag-to-notch opens the Tray).
+    private func consumePendingFilter() {
+        guard let requested = appState.pendingNotchFilter else { return }
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+            filter = requested
+        }
+        appState.pendingNotchFilter = nil
     }
 
     // MARK: - Filter bar

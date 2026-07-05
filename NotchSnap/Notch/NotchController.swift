@@ -37,6 +37,12 @@ class NotchController: ObservableObject {
     private var lastMouseTime: TimeInterval = 0
     private var lastMouseSpeed: CGFloat = 0
 
+    // Drag-and-drop awareness: true while the user is dragging something
+    // (files, text, images) anywhere on screen. While a drag is in flight
+    // the notch NEVER auto-collapses, and touching the notch zone with a
+    // drag expands it straight onto the file tray.
+    private var isDragSessionActive = false
+
     // Tuned parameters — hoverDebounce is read from settings (0-500ms, configurable)
     private var hoverDebounceNanos: UInt64 {
         UInt64(AppState.shared.settings.hoverDelayMs) * 1_000_000
@@ -200,8 +206,9 @@ class NotchController: ObservableObject {
         // while the cursor is outside the panel. Without the guard, every
         // event spawned a new collapse task and fired sound + haptic —
         // the "machine-gun" glitch. One collapse at a time, only from
-        // the expanded state.
-        guard state == .expanded, collapseTask == nil else { return }
+        // the expanded state. Never collapse while a drag is in flight —
+        // the user may be carrying a file to or from the tray.
+        guard state == .expanded, collapseTask == nil, !isDragSessionActive else { return }
 
         expandTask?.cancel()
         expandTask = nil
@@ -433,9 +440,28 @@ class NotchController: ObservableObject {
     // MARK: - Mouse Tracking
 
     private func startMouseTracking() {
-        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] event in
+        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
+            let isDrag = event.type == .leftMouseDragged
+            let isUp = event.type == .leftMouseUp
             Task { @MainActor in
-                self?.handleMouseMoved(NSEvent.mouseLocation, timestamp: event.timestamp)
+                guard let self else { return }
+                if isUp {
+                    // Drag session over — normal hover/collapse rules resume.
+                    self.isDragSessionActive = false
+                    return
+                }
+                if isDrag {
+                    // A leftMouseDragged with a populated drag pasteboard means
+                    // the user is carrying something (file, image, text).
+                    if NSPasteboard(name: .drag).pasteboardItems?.isEmpty == false {
+                        self.isDragSessionActive = true
+                    }
+                } else {
+                    // A plain mouse-move means the button is up — any drag is
+                    // over (drag sessions can swallow the final mouse-up).
+                    self.isDragSessionActive = false
+                }
+                self.handleMouseMoved(NSEvent.mouseLocation, timestamp: event.timestamp)
             }
         }
 
@@ -452,14 +478,26 @@ class NotchController: ObservableObject {
             return event
         }
 
-        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown]) { [weak self] event in
+        localMouseMonitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown, .rightMouseDown, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
+            let type = event.type
             Task { @MainActor in
-                if event.type == .leftMouseDown {
-                    self?.handleClick()
-                } else if event.type == .rightMouseDown {
-                    self?.handleRightClick(event)
-                } else {
-                    self?.handleMouseMoved(NSEvent.mouseLocation, timestamp: event.timestamp)
+                guard let self else { return }
+                switch type {
+                case .leftMouseDown:
+                    self.handleClick()
+                case .rightMouseDown:
+                    self.handleRightClick(event)
+                case .leftMouseDragged:
+                    // Drag-out from a tray card: our own app's drag events are
+                    // local-only, so track them here to keep the notch open
+                    // for the whole journey to the drop target.
+                    if NSPasteboard(name: .drag).pasteboardItems?.isEmpty == false {
+                        self.isDragSessionActive = true
+                    }
+                case .leftMouseUp:
+                    self.isDragSessionActive = false
+                default:
+                    self.handleMouseMoved(NSEvent.mouseLocation, timestamp: event.timestamp)
                 }
             }
             return event
@@ -469,7 +507,9 @@ class NotchController: ObservableObject {
     private func handleMouseMoved(_ location: NSPoint, timestamp: TimeInterval) {
         guard let screen = NSScreen.main else { return }
         let settings = AppState.shared.settings
-        guard settings.notchTrigger == .hover else { return }
+        // Drag-to-tray works regardless of the notch trigger setting —
+        // only plain hover behavior is gated by it.
+        guard settings.notchTrigger == .hover || isDragSessionActive else { return }
 
         // Calculate mouse velocity
         let distance = hypot(location.x - lastMousePoint.x, location.y - lastMousePoint.y)
@@ -479,6 +519,30 @@ class NotchController: ObservableObject {
         lastMouseTime = timestamp
 
         let inZone = isInTriggerZone(location, screen: screen)
+
+        // ── Drag in flight ─────────────────────────────────────────────
+        // Carrying a file/text/image changes the rules entirely:
+        //   • touching the notch zone opens it straight onto the Tray
+        //     (no hover debounce, no velocity gate — intent is obvious)
+        //   • the notch NEVER collapses mid-drag, so the user can wander
+        //     to another window and back, or drag a tray item out.
+        if isDragSessionActive {
+            // Generous target while carrying something: wider than the notch
+            // and a little below the menu bar, so "approaching" is enough.
+            let notchRect = calculateNotchRect(screen: screen)
+            let dragZone = NSRect(
+                x: notchRect.minX - 60,
+                y: screen.frame.maxY - notchRect.height * 2.5,
+                width: notchRect.width + 120,
+                height: notchRect.height * 2.5
+            )
+            if dragZone.contains(location) && state != .expanded {
+                AppState.shared.pendingNotchFilter = .tray
+                triggerExpand()
+            }
+            cancelCollapse()
+            return
+        }
 
         if inZone && lastMouseSpeed < maxTriggerSpeed {
             if state == .idle {

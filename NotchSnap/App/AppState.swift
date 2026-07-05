@@ -45,6 +45,11 @@ class AppState: ObservableObject {
     /// Set by ScreenshotThumbnailView and ClipboardTile in their .onHover.
     @Published var hoveredQuickLookItem: QuickLookItem? = nil
 
+    /// One-shot request to open the notch gallery on a specific filter —
+    /// e.g. a file drag touching the notch opens straight onto the Tray.
+    /// Consumed (reset to nil) by NotchExpandedView.
+    @Published var pendingNotchFilter: NotchContentFilter? = nil
+
     private let maxClipboardItems = 30
 
     // MARK: - Screenshot Management
