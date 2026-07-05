@@ -4,6 +4,14 @@ import UniformTypeIdentifiers
 
 // MARK: - ClipboardItem — Classified pasteboard content
 
+// How an entry lives in the panel: rolling history, pinned favorite, or a
+// user-authored snippet (never captured from the pasteboard).
+enum ClipboardItemKind: String, Codable {
+    case history
+    case pinned
+    case snippet
+}
+
 struct ClipboardItem: Identifiable {
     let id: UUID
     let capturedAt: Date
@@ -17,6 +25,11 @@ struct ClipboardItem: Identifiable {
     var previewColor: NSColor?
     var sourceURL: URL?
     var fileName: String?
+
+    // Pinned / snippet support (defaults keep all existing call sites valid)
+    var kind: ClipboardItemKind = .history
+    var label: String? = nil        // snippet title, optional for pinned
+    var sortOrder: Int = 0          // manual ordering within pinned/snippets
 
     enum ClipboardItemType: Equatable {
         case screenshot
@@ -209,6 +222,40 @@ struct ClipboardItem: Identifiable {
             return previewText.map { String($0.prefix(12)) }
         default:
             return nil
+        }
+    }
+}
+
+// MARK: - Persistence key for ClipboardItemType (not a String enum, so map manually)
+
+extension ClipboardItem.ClipboardItemType {
+    var persistenceKey: String {
+        switch self {
+        case .screenshot: return "screenshot"
+        case .image:      return "image"
+        case .plainText:  return "plainText"
+        case .code:       return "code"
+        case .url:        return "url"
+        case .color:      return "color"
+        case .filePath:   return "filePath"
+        case .richText:   return "richText"
+        case .number:     return "number"
+        case .unknown:    return "unknown"
+        }
+    }
+
+    static func from(persistenceKey: String) -> Self {
+        switch persistenceKey {
+        case "screenshot": return .screenshot
+        case "image":      return .image
+        case "plainText":  return .plainText
+        case "code":       return .code
+        case "url":        return .url
+        case "color":      return .color
+        case "filePath":   return .filePath
+        case "richText":   return .richText
+        case "number":     return .number
+        default:           return .unknown
         }
     }
 }

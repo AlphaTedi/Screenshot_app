@@ -31,6 +31,11 @@ class AppState: ObservableObject {
 
     @Published var screenshots: [ScreenshotItem] = []
     @Published var clipboardItems: [ClipboardItem] = []
+
+    // Persistent clipboard: pinned favorites + user-authored snippets.
+    // Both survive restarts (JSON in Application Support) and never expire.
+    @Published var pinnedItems: [ClipboardItem] = []
+    @Published var snippets: [ClipboardItem] = []
     @Published var isNotchExpanded: Bool = false
     @Published var selectedScreenshotID: UUID? = nil
     @Published var settings: AppSettings = AppSettings.load()
@@ -180,6 +185,171 @@ class AppState: ObservableObject {
 
     func removeClipboardItem(id: UUID) {
         clipboardItems.removeAll { $0.id == id }
+    }
+
+    // MARK: - Pinned items & Snippets
+
+    /// Pin a history item: copies it into the persistent Pinned section.
+    /// The original stays in rolling history until it scrolls off naturally.
+    func pinClipboardItem(_ item: ClipboardItem) {
+        guard !pinnedItems.contains(where: {
+            $0.previewText == item.previewText && $0.type == item.type
+        }) else { return }
+        let pinned = ClipboardItem(
+            id: UUID(), capturedAt: item.capturedAt, type: item.type,
+            rawData: item.rawData, pasteboardTypes: item.pasteboardTypes,
+            previewText: item.previewText, previewImage: item.previewImage,
+            previewColor: item.previewColor, sourceURL: item.sourceURL,
+            fileName: item.fileName,
+            kind: .pinned, label: nil, sortOrder: pinnedItems.count
+        )
+        withAnimation(NotchAnimation.newScreenshot) {
+            pinnedItems.append(pinned)
+        }
+        HapticManager.shared.thumbnailSelect()
+        persistClipboardArchive()
+    }
+
+    /// Un-pinning removes it from Pinned; it does NOT return to history (CB-9).
+    func unpinClipboardItem(id: UUID) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            pinnedItems.removeAll { $0.id == id }
+        }
+        persistClipboardArchive()
+    }
+
+    func addSnippet(label: String, content: String) {
+        let item = ClipboardItem(
+            id: UUID(), capturedAt: Date(),
+            type: .plainText, rawData: content.data(using: .utf8),
+            pasteboardTypes: [.string],
+            previewText: content,
+            kind: .snippet, label: label, sortOrder: snippets.count
+        )
+        withAnimation(NotchAnimation.newScreenshot) {
+            snippets.append(item)
+        }
+        persistClipboardArchive()
+    }
+
+    func updateSnippet(id: UUID, label: String, content: String) {
+        guard let idx = snippets.firstIndex(where: { $0.id == id }) else { return }
+        let updated = snippets[idx]
+        snippets[idx] = ClipboardItem(
+            id: updated.id, capturedAt: updated.capturedAt,
+            type: .plainText, rawData: content.data(using: .utf8),
+            pasteboardTypes: [.string],
+            previewText: content,
+            kind: .snippet, label: label, sortOrder: updated.sortOrder
+        )
+        persistClipboardArchive()
+    }
+
+    func removeSnippet(id: UUID) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            snippets.removeAll { $0.id == id }
+        }
+        persistClipboardArchive()
+    }
+
+    /// Reorder within the Pinned or Snippets section (CB-8).
+    func moveClipboardEntry(id: UUID, direction: Int) {
+        func move(in array: inout [ClipboardItem]) -> Bool {
+            guard let idx = array.firstIndex(where: { $0.id == id }) else { return false }
+            let newIdx = idx + direction
+            guard newIdx >= 0, newIdx < array.count else { return true }
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                array.swapAt(idx, newIdx)
+            }
+            return true
+        }
+        if !move(in: &pinnedItems) { _ = move(in: &snippets) }
+        persistClipboardArchive()
+    }
+
+    // MARK: - Clipboard archive persistence (pinned + snippets)
+    //
+    // Same lightweight pattern as the Shelf: one JSON file, image payloads
+    // as PNGs next to it, debounced writes.
+
+    private struct PersistedEntry: Codable {
+        let id: UUID
+        let kind: ClipboardItemKind
+        let createdAt: Date
+        let label: String?
+        let typeKey: String
+        let text: String?
+        let hasImage: Bool
+        let sortOrder: Int
+    }
+
+    private static var clipboardArchiveDir: URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        return base.appendingPathComponent("NotchSnap/Clipboard", isDirectory: true)
+    }
+
+    private var archiveSaveWork: Task<Void, Never>?
+
+    func persistClipboardArchive() {
+        archiveSaveWork?.cancel()
+        archiveSaveWork = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled, let self else { return }
+            let dir = Self.clipboardArchiveDir
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+
+            var entries: [PersistedEntry] = []
+            for item in self.pinnedItems + self.snippets {
+                var hasImage = false
+                if (item.type == .image || item.type == .screenshot),
+                   let data = item.rawData {
+                    let imgURL = dir.appendingPathComponent("\(item.id.uuidString).tiff")
+                    try? data.write(to: imgURL)
+                    hasImage = true
+                }
+                entries.append(PersistedEntry(
+                    id: item.id, kind: item.kind, createdAt: item.capturedAt,
+                    label: item.label, typeKey: item.type.persistenceKey,
+                    text: item.previewText, hasImage: hasImage,
+                    sortOrder: item.sortOrder
+                ))
+            }
+            if let data = try? JSONEncoder().encode(entries) {
+                try? data.write(to: dir.appendingPathComponent("clipboard.json"))
+            }
+        }
+    }
+
+    func loadClipboardArchive() {
+        let dir = Self.clipboardArchiveDir
+        guard let data = try? Data(contentsOf: dir.appendingPathComponent("clipboard.json")),
+              let entries = try? JSONDecoder().decode([PersistedEntry].self, from: data) else { return }
+
+        var pinned: [ClipboardItem] = []
+        var snips: [ClipboardItem] = []
+        for e in entries {
+            var rawData: Data? = e.text?.data(using: .utf8)
+            var previewImage: NSImage? = nil
+            if e.hasImage {
+                let imgURL = dir.appendingPathComponent("\(e.id.uuidString).tiff")
+                if let d = try? Data(contentsOf: imgURL) {
+                    rawData = d
+                    previewImage = NSImage(data: d)
+                }
+            }
+            let type = ClipboardItem.ClipboardItemType.from(persistenceKey: e.typeKey)
+            let item = ClipboardItem(
+                id: e.id, capturedAt: e.createdAt, type: type,
+                rawData: rawData, pasteboardTypes: [.string],
+                previewText: e.text, previewImage: previewImage,
+                previewColor: type == .color ? e.text.flatMap { NSColor.fromHex($0) } : nil,
+                sourceURL: type == .url ? e.text.flatMap { URL(string: $0) } : nil,
+                kind: e.kind, label: e.label, sortOrder: e.sortOrder
+            )
+            if e.kind == .snippet { snips.append(item) } else { pinned.append(item) }
+        }
+        pinnedItems = pinned.sorted { $0.sortOrder < $1.sortOrder }
+        snippets = snips.sorted { $0.sortOrder < $1.sortOrder }
     }
 
     // MARK: - Settings

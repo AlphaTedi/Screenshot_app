@@ -57,6 +57,7 @@ struct NotchExpandedView: View {
     @EnvironmentObject var appState: AppState
     @State private var appeared = false
     @State private var filter: NotchContentFilter = .all
+    @State private var shelfDropTargeted = false
 
     private var hasContent: Bool {
         !appState.screenshots.isEmpty || !appState.clipboardItems.isEmpty
@@ -101,6 +102,21 @@ struct NotchExpandedView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // The expanded notch is a Shelf drop target: files, images, text and
+        // links dragged here land on the Shelf (bottom-left strip).
+        .onDrop(of: ShelfDropHandler.acceptedTypes, isTargeted: $shelfDropTargeted) { providers in
+            let handled = ShelfDropHandler.handle(providers: providers)
+            if handled { ShelfPanelController.shared.reveal() }
+            return handled
+        }
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.accentColor, lineWidth: 2)
+                .padding(6)
+                .opacity(shelfDropTargeted ? 1 : 0)
+                .allowsHitTesting(false)
+                .animation(.easeOut(duration: 0.15), value: shelfDropTargeted)
+        )
         .onAppear {
             appeared = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -155,6 +171,13 @@ struct NotchExpandedView: View {
         .padding()
     }
 
+    private var sectionDivider: some View {
+        Divider()
+            .frame(height: 60)
+            .opacity(0.3)
+            .padding(.horizontal, 4)
+    }
+
     private var galleryTransition: AnyTransition {
         .asymmetric(
             insertion: .move(edge: .trailing).combined(with: .opacity).combined(with: .scale(scale: 0.72, anchor: .trailing)),
@@ -170,17 +193,35 @@ struct NotchExpandedView: View {
         // and every appeared toggle would fire N stacked springs simultaneously.
         // Lazy stack diffing + transition() handle insert/remove animation cleanly.
         ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: 10) {
+            LazyHStack(alignment: .center, spacing: 10) {
                 ForEach(filteredScreenshots) { item in
                     ScreenshotThumbnailView(item: item)
                         .transition(galleryTransition)
                 }
 
-                if !filteredScreenshots.isEmpty && !filteredClipboardItems.isEmpty {
-                    Divider()
-                        .frame(height: 60)
-                        .opacity(0.3)
-                        .padding(.horizontal, 4)
+                // Persistent sections (Snippets → Pinned) live under "All",
+                // visually separated from the rolling Recent history.
+                if filter == .all {
+                    if !filteredScreenshots.isEmpty {
+                        sectionDivider
+                    }
+
+                    ForEach(appState.snippets) { item in
+                        ClipboardTile(item: item)
+                            .transition(galleryTransition)
+                    }
+                    NewSnippetTile()
+
+                    ForEach(appState.pinnedItems) { item in
+                        ClipboardTile(item: item)
+                            .transition(galleryTransition)
+                    }
+
+                    if !filteredClipboardItems.isEmpty {
+                        sectionDivider
+                    }
+                } else if !filteredScreenshots.isEmpty && !filteredClipboardItems.isEmpty {
+                    sectionDivider
                 }
 
                 ForEach(filteredClipboardItems) { item in

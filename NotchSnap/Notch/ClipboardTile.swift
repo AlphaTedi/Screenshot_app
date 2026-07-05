@@ -20,15 +20,30 @@ struct ClipboardTile: View {
                 )
 
             VStack(alignment: .leading, spacing: 0) {
-                // Header: type icon + timestamp
-                HStack {
-                    Image(systemName: item.iconName)
+                // Header: type icon + (snippet label | timestamp) + kind badge
+                HStack(spacing: 4) {
+                    Image(systemName: item.kind == .snippet ? "text.badge.star" : item.iconName)
                         .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(item.kind == .snippet ? Color.yellow : .secondary)
+
+                    if item.kind == .snippet, let label = item.label {
+                        Text(label)
+                            .font(.system(size: 9, weight: .semibold))
+                            .lineLimit(1)
+                            .foregroundStyle(Color.white.opacity(0.8))
+                    }
+
                     Spacer()
-                    Text(item.relativeTime)
-                        .font(.system(size: 9))
-                        .foregroundStyle(Color.white.opacity(0.35))
+
+                    if item.kind == .pinned {
+                        Image(systemName: "pin.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(Color.accentColor)
+                    } else if item.kind == .history {
+                        Text(item.relativeTime)
+                            .font(.system(size: 9))
+                            .foregroundStyle(Color.white.opacity(0.35))
+                    }
                 }
                 .padding(.horizontal, 8)
                 .padding(.top, 8)
@@ -76,6 +91,33 @@ struct ClipboardTile: View {
                 appState.hoveredQuickLookItem = .clipboard(item)
             } else if case .clipboard(let c) = appState.hoveredQuickLookItem, c.id == item.id {
                 appState.hoveredQuickLookItem = nil
+            }
+        }
+        .contextMenu {
+            switch item.kind {
+            case .history:
+                Button("Pin") { appState.pinClipboardItem(item) }
+                Button("Copy") { quickCopy() }
+                Divider()
+                Button("Delete", role: .destructive) {
+                    appState.removeClipboardItem(id: item.id)
+                }
+            case .pinned:
+                Button("Unpin") { appState.unpinClipboardItem(id: item.id) }
+                Button("Copy") { quickCopy() }
+                Divider()
+                Button("Move Left")  { appState.moveClipboardEntry(id: item.id, direction: -1) }
+                Button("Move Right") { appState.moveClipboardEntry(id: item.id, direction: 1) }
+            case .snippet:
+                Button("Edit\u{2026}") { SnippetEditorController.shared.show(editing: item) }
+                Button("Copy") { quickCopy() }
+                Divider()
+                Button("Move Left")  { appState.moveClipboardEntry(id: item.id, direction: -1) }
+                Button("Move Right") { appState.moveClipboardEntry(id: item.id, direction: 1) }
+                Divider()
+                Button("Delete", role: .destructive) {
+                    appState.removeSnippet(id: item.id)
+                }
             }
         }
     }

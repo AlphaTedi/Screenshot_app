@@ -157,10 +157,10 @@ class CaptureManager: ObservableObject {
                 // Editor flow: the editor IS the preview — no corner thumbnail.
                 EditorWindowController.shared.open(item: item)
             } else {
-                // Quick-capture flow: CleanShot-style corner preview the user
-                // can drag away, copy, or let fade. The notch stays quiet —
-                // it's the management center, not the announcement channel.
-                FloatingPreviewController.shared.show(item: item)
+                // Quick-capture flow: the screenshot lands on the Shelf and
+                // the bottom-left strip reveals itself — drag it away, copy,
+                // pin, or let it expire. The notch stays the management center.
+                ShelfStore.shared.addScreenshot(item)
             }
 
         } catch CaptureError.cancelled {
