@@ -61,6 +61,7 @@
 		DCC0B9D52A8E0C6C0E5D4E56 /* DraggableImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1C8BB9B43739356470D3C5 /* DraggableImageView.swift */; };
 		DED14E2F94DEDEA22251A3BB /* RecognizedTextBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCAE45BA91B1CD2BA08D03BE /* RecognizedTextBlock.swift */; };
 		E5061728394AB5C6D7E8F90A /* CaptureActionBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D3E4F5061728394A5B6C7D /* CaptureActionBar.swift */; };
+		CC00DD11EE22FF3344556601 /* FloatingPreviewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD11EE22FF334455667702CC /* FloatingPreviewController.swift */; };
 		EB26D85A6E5100C2BE0DAAFA /* CaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D156E7E67743484CA15E540 /* CaptureManager.swift */; };
 		EC56C3431643B6839964CF6A /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF1ECF0DFBC785BB92246FBF /* ToolbarView.swift */; };
 		ECAA4E5189FA21B6FD281652 /* TempFileManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78624054F2656FBE20600A3C /* TempFileManager.swift */; };
@@ -80,6 +81,7 @@
 		2233445566778899AABB0011 /* OnboardingWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingWindowController.swift; sourceTree = "<group>"; };
 		BBCCDDEE22334455FF667700 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		22ACC55133418148325C1F8B /* ScreenCaptureKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ScreenCaptureKit.framework; path = System/Library/Frameworks/ScreenCaptureKit.framework; sourceTree = SDKROOT; };
+		DD11EE22FF334455667702CC /* FloatingPreviewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FloatingPreviewController.swift; sourceTree = "<group>"; };
 		2D156E7E67743484CA15E540 /* CaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CaptureManager.swift; sourceTree = "<group>"; };
 		2F1B783B764932999A1FEF0B /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		301237CAA34036B66D14C7D8 /* AnnotationCanvas.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnnotationCanvas.swift; sourceTree = "<group>"; };
@@ -194,6 +196,7 @@
 		45402D60E2540CAF568941A8 /* Capture */ = {
 			isa = PBXGroup;
 			children = (
+				DD11EE22FF334455667702CC /* FloatingPreviewController.swift */,
 				2D156E7E67743484CA15E540 /* CaptureManager.swift */,
 				1B63530D4E04AB5C54526B71 /* HotkeyManager.swift */,
 				A54EE6536F83A25DC71266E2 /* AreaSelector.swift */,
@@ -414,6 +417,7 @@
 				C1D718E235EFE1AEDF61E840 /* AppSettings.swift in Sources */,
 				0F663776CDD3D605C249FA70 /* AnnotationModel.swift in Sources */,
 				F369B7B819F1F49E664269F8 /* ScreenshotItem.swift in Sources */,
+				CC00DD11EE22FF3344556601 /* FloatingPreviewController.swift in Sources */,
 				EB26D85A6E5100C2BE0DAAFA /* CaptureManager.swift in Sources */,
 				FB2CE7D9B3E5DDC297A8BDD0 /* HotkeyManager.swift in Sources */,
 				B2A1D418A62187C8E8EF5FB8 /* AreaSelector.swift in Sources */,

@@ -154,11 +154,14 @@ class CaptureManager: ObservableObject {
 
             // Open editor immediately after capture
             if openEditorAfter {
+                // Editor flow: the editor IS the preview — no corner thumbnail.
                 EditorWindowController.shared.open(item: item)
+            } else {
+                // Quick-capture flow: CleanShot-style corner preview the user
+                // can drag away, copy, or let fade. The notch stays quiet —
+                // it's the management center, not the announcement channel.
+                FloatingPreviewController.shared.show(item: item)
             }
-
-            // Trigger notch expansion to show new screenshot
-            NotchController.shared.showNewScreenshot()
 
         } catch CaptureError.cancelled {
             print("[CaptureManager] Capture cancelled by user")
@@ -289,7 +292,9 @@ class CaptureManager: ObservableObject {
                 break
             }
 
-            NotchController.shared.showNewScreenshot()
+            // Inline-edit flow: the user already copied/saved via the action
+            // bar — no corner preview or notch announcement needed. The item
+            // is in the notch gallery for later management.
 
         } catch CaptureError.cancelled {
             print("[CaptureManager] Inline capture cancelled by user")
