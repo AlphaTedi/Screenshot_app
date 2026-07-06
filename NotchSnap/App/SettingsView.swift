@@ -843,6 +843,14 @@ struct ShortcutsSettingsView: View {
                 ShortcutRow(label: "Repeat last capture", keys: "\u{2303}\u{21E7}Space")
             }
 
+            SettingsSection_Card(title: "Notch") {
+                ShortcutRow(label: "Open Notes", keys: "\u{2303}\u{21E7}N")
+                Divider()
+                ShortcutRow(label: "Open file Tray", keys: "\u{2303}\u{21E7}F")
+                Divider()
+                ShortcutRow(label: "Close notch", keys: "Esc")
+            }
+
             SettingsSection_Card(title: "Application") {
                 ShortcutRow(label: "Open Settings", keys: "\u{2318} ,")
                 Divider()

@@ -37,6 +37,8 @@ class HotkeyManager {
         case windowCapture = 3    // ⌃⇧2
         case areaWithEditor = 4   // ⌃⇧5
         case repeatLast = 5       // ⌃⇧Space
+        case openNotes = 6        // ⌃⇧N — expand notch on the Notes tab
+        case openTray = 7         // ⌃⇧F — expand notch on the file Tray
     }
 
     func start() {
@@ -69,6 +71,8 @@ class HotkeyManager {
         registerHotKey(id: .windowCapture, keyCode: UInt32(kVK_ANSI_2), modifiers: ctrlShift)
         registerHotKey(id: .areaWithEditor, keyCode: UInt32(kVK_ANSI_5), modifiers: ctrlShift)
         registerHotKey(id: .repeatLast, keyCode: UInt32(kVK_Space), modifiers: ctrlShift)
+        registerHotKey(id: .openNotes, keyCode: UInt32(kVK_ANSI_N), modifiers: ctrlShift)
+        registerHotKey(id: .openTray, keyCode: UInt32(kVK_ANSI_F), modifiers: ctrlShift)
 
         print("[HotkeyManager] Carbon hot keys registered. No Accessibility permission needed.")
     }
@@ -130,6 +134,20 @@ class HotkeyManager {
             print("[HotkeyManager] ⌃⇧Space → Repeat last capture")
             Task {
                 await CaptureManager.shared.startCapture(mode: AppState.shared.lastCaptureMode)
+            }
+
+        case .openNotes:
+            print("[HotkeyManager] ⌃⇧N → Notch on Notes")
+            Task { @MainActor in
+                AppState.shared.pendingNotchFilter = .notes
+                NotchController.shared.triggerExpand()
+            }
+
+        case .openTray:
+            print("[HotkeyManager] ⌃⇧F → Notch on Tray")
+            Task { @MainActor in
+                AppState.shared.pendingNotchFilter = .tray
+                NotchController.shared.triggerExpand()
             }
         }
     }

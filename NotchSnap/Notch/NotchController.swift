@@ -207,8 +207,10 @@ class NotchController: ObservableObject {
         // event spawned a new collapse task and fired sound + haptic —
         // the "machine-gun" glitch. One collapse at a time, only from
         // the expanded state. Never collapse while a drag is in flight —
-        // the user may be carrying a file to or from the tray.
-        guard state == .expanded, collapseTask == nil, !isDragSessionActive else { return }
+        // the user may be carrying a file to or from the tray — or while
+        // the user is engaged (typing in the composer, date popover open).
+        guard state == .expanded, collapseTask == nil,
+              !isDragSessionActive, !isUserEngaged else { return }
 
         expandTask?.cancel()
         expandTask = nil
@@ -475,6 +477,16 @@ class NotchController: ObservableObject {
                 let handled = MainActor.assumeIsolated { self.handleSpacebar() }
                 if handled { return nil }
             }
+            if event.keyCode == 53 { // escape — close the notch even while
+                                     // engaged (engagement blocks auto-collapse)
+                let handled = MainActor.assumeIsolated { () -> Bool in
+                    guard self.state == .expanded else { return false }
+                    self.panel?.resignKey()
+                    self.triggerCollapse()
+                    return true
+                }
+                if handled { return nil }
+            }
             return event
         }
 
@@ -680,14 +692,34 @@ class NotchController: ObservableObject {
         }
     }
 
+    /// The expanded shape can be taller than the base size (filter bar,
+    /// Notes tab). The hover/collapse geometry MUST match, or the lower
+    /// part of the UI counts as "outside" and hovering it closes the notch.
+    private var currentExtraExpandedHeight: CGFloat {
+        (AppState.shared.showsNotchFilterBar ? 34 : 0)
+            + (AppState.shared.activeNotchFilter == .notes ? 44 : 0)
+    }
+
     private func expandedPanelRect(screen: NSScreen) -> NSRect {
         let notchRect = calculateNotchRect(screen: screen)
+        let height = expandedSize.height + currentExtraExpandedHeight
         return NSRect(
             x: notchRect.midX - expandedSize.width / 2,
-            y: notchRect.maxY - expandedSize.height,
+            y: notchRect.maxY - height,
             width: expandedSize.width,
-            height: expandedSize.height
+            height: height
         )
+    }
+
+    /// True while the user is actively working inside the notch — the panel
+    /// is key (typing in the Notes composer) or one of its popovers (date
+    /// picker) is key. Collapse is suspended so interaction can't be
+    /// yanked away mid-click; it resumes once focus moves elsewhere.
+    private var isUserEngaged: Bool {
+        guard let panel else { return false }
+        if panel.isKeyWindow { return true }
+        if let key = NSApp.keyWindow, key.parent === panel { return true }
+        return false
     }
 
     private func calculateMaxPanelFrame(screen: NSScreen) -> NSRect {
