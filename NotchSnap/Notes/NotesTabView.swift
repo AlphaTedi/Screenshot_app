@@ -119,27 +119,28 @@ struct NotesTabView: View {
                 Spacer()
 
                 Button(action: commit) {
-                    HStack(spacing: 5) {
-                        Image(systemName: makeReminder ? "bell.badge.fill" : "arrow.down.circle.fill")
-                            .font(.system(size: 11, weight: .semibold))
+                    HStack(spacing: 6) {
                         Text(L10n.t(makeReminder ? "notes.saveButtonReminder" : "notes.saveButtonNote"))
-                            .font(.system(size: 10, weight: .semibold))
-                        // The shortcut, right on the button — no guessing.
-                        Text("\u{2318}\u{21A9}")
-                            .font(.system(size: 9, weight: .medium, design: .monospaced))
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1.5)
-                            .background(
-                                RoundedRectangle(cornerRadius: 4, style: .continuous)
-                                    .fill(Color.white.opacity(0.18))
-                            )
+                            .font(.system(size: 12, weight: .semibold))
+                        // The shortcut as two clear keycaps: ⌘ and ↩
+                        HStack(spacing: 3) {
+                            Text("\u{2318}")
+                            Text("\u{21A9}")
+                        }
+                        .font(.system(size: 12, weight: .semibold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(Color.black.opacity(0.25))
+                        )
                     }
-                    .foregroundStyle(draftIsEmpty ? Color.white.opacity(0.3) : Color.white)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 5)
+                    .foregroundStyle(draftIsEmpty ? Color.white.opacity(0.35) : Color.white)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 6)
                     .background(
                         Capsule(style: .continuous)
-                            .fill(draftIsEmpty ? Color.white.opacity(0.08) : Color.accentColor)
+                            .fill(draftIsEmpty ? Color.white.opacity(0.08) : Color.green.opacity(0.85))
                     )
                     .contentShape(Capsule())
                 }
