@@ -15,6 +15,7 @@ struct NotchRootView: View {
             // (composer + lists need more vertical room than tiles).
             extraExpandedHeight: (appState.showsNotchFilterBar ? 34 : 0)
                 + (appState.activeNotchFilter == .notes ? 44 : 0),
+            extraExpandedWidth: appState.activeNotchFilter == .notes ? 140 : 0,
             hasPhysicalNotch: controller.hasPhysicalNotch,
             screenshotJustArrived: controller.screenshotJustArrived,
             contentVisible: controller.contentVisible,

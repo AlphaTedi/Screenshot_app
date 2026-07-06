@@ -15,18 +15,10 @@ struct NotesTabView: View {
 
     @ObservedObject private var appState = AppState.shared
     @State private var makeReminder = false
-    @State private var dueDate = NotesTabView.defaultDue()
     @FocusState private var composerFocused: Bool
 
     private var draftIsEmpty: Bool {
         notes.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
-    /// Default due time: the next full hour.
-    static func defaultDue() -> Date {
-        let cal = Calendar.current
-        let next = cal.date(byAdding: .hour, value: 1, to: Date()) ?? Date()
-        return cal.date(bySetting: .minute, value: 0, of: next) ?? next
     }
 
     var body: some View {
@@ -35,7 +27,7 @@ struct NotesTabView: View {
                 .frame(maxWidth: .infinity)
 
             rightColumn
-                .frame(width: 210)
+                .frame(width: 280)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -90,82 +82,45 @@ struct NotesTabView: View {
             .frame(maxHeight: .infinity)
 
             HStack(spacing: 8) {
+                // Compact-control scale (macOS HIG): 24pt pills, 11pt labels,
+                // shared keycap style — consistent with the filter chips.
                 Toggle(isOn: $makeReminder) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "bell")
-                            .font(.system(size: 11, weight: .semibold))
-                        Text(L10n.t("notes.makeReminder"))
-                            .font(.system(size: 11, weight: .semibold))
-                        // Shortcut keycap, same style as the save button's
-                        HStack(spacing: 3) {
-                            Text("\u{2318}")
-                            Text("R")
-                        }
-                        .font(.system(size: 11, weight: .semibold))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(Color.black.opacity(0.25))
-                        )
-                    }
-                    .foregroundStyle(makeReminder ? Color.white : .white.opacity(0.6))
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(makeReminder ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.08))
+                    NotchControlLabel(
+                        icon: "checklist",
+                        title: L10n.t("notes.makeReminder"),
+                        keys: "\u{2318}R",
+                        emphasized: makeReminder
                     )
-                    .contentShape(Capsule())
                 }
                 .toggleStyle(.button)
                 .buttonStyle(.plain)
                 .keyboardShortcut("r", modifiers: .command)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(makeReminder ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.08))
+                )
                 .onChange(of: makeReminder) { on in
                     if on {
-                        dueDate = Self.defaultDue()
                         Task { _ = await reminders.requestAccess() }
                     }
-                }
-
-                if makeReminder {
-                    DatePicker("", selection: $dueDate)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
-                        .scaleEffect(0.85, anchor: .leading)
-                        .frame(maxWidth: 150, alignment: .leading)
                 }
 
                 Spacer()
 
                 Button(action: commit) {
-                    HStack(spacing: 6) {
-                        Text(L10n.t(makeReminder ? "notes.saveButtonReminder" : "notes.saveButtonNote"))
-                            .font(.system(size: 12, weight: .semibold))
-                        // The shortcut as two clear keycaps: ⌘ and ↩
-                        HStack(spacing: 3) {
-                            Text("\u{2318}")
-                            Text("\u{21A9}")
-                        }
-                        .font(.system(size: 12, weight: .semibold))
-                        .padding(.horizontal, 5)
-                        .padding(.vertical, 2)
-                        .background(
-                            RoundedRectangle(cornerRadius: 5, style: .continuous)
-                                .fill(Color.black.opacity(0.25))
-                        )
-                    }
-                    .foregroundStyle(draftIsEmpty ? Color.white.opacity(0.35) : Color.white)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 6)
-                    .background(
-                        Capsule(style: .continuous)
-                            .fill(draftIsEmpty ? Color.white.opacity(0.08) : Color.green.opacity(0.85))
+                    NotchControlLabel(
+                        icon: nil,
+                        title: L10n.t(makeReminder ? "notes.saveButtonReminder" : "notes.saveButtonNote"),
+                        keys: "\u{2318}\u{21A9}",
+                        emphasized: !draftIsEmpty
                     )
-                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.return, modifiers: .command)
+                .background(
+                    Capsule(style: .continuous)
+                        .fill(draftIsEmpty ? Color.white.opacity(0.08) : Color.green.opacity(0.8))
+                )
                 .disabled(draftIsEmpty)
             }
             .animation(.spring(response: 0.25, dampingFraction: 0.85), value: makeReminder)
@@ -177,7 +132,7 @@ struct NotesTabView: View {
             .split(separator: "\n").first.map(String.init) ?? notes.draft
         if makeReminder {
             Task { @MainActor in
-                if let id = await reminders.createReminder(title: title, due: dueDate) {
+                if let id = await reminders.createReminder(title: title, due: nil) {
                     notes.commitDraft(promotedReminderID: id)
                     makeReminder = false
                     HapticManager.shared.copyConfirmed()
@@ -338,5 +293,42 @@ private struct NoteRow: View {
                 NotesStore.shared.delete(note.id)
             }
         }
+    }
+}
+
+
+// MARK: - NotchControlLabel — one compact control anatomy for notch pills
+//
+// macOS HIG compact-control scale: 24pt tall, 11pt semibold label, 10pt
+// keycap chip. Both the reminder toggle and the save button use this, so
+// every actionable pill in the notch shares one size and rhythm.
+
+struct NotchControlLabel: View {
+    let icon: String?
+    let title: String
+    let keys: String
+    let emphasized: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.system(size: 10, weight: .semibold))
+            }
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+            Text(keys)
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 4)
+                .padding(.vertical, 1)
+                .background(
+                    RoundedRectangle(cornerRadius: 4, style: .continuous)
+                        .fill(Color.black.opacity(0.25))
+                )
+        }
+        .foregroundStyle(emphasized ? Color.white : Color.white.opacity(0.55))
+        .padding(.horizontal, 10)
+        .frame(height: 24)
+        .contentShape(Capsule())
     }
 }

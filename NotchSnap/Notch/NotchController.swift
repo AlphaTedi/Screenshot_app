@@ -712,13 +712,18 @@ class NotchController: ObservableObject {
             + (AppState.shared.activeNotchFilter == .notes ? 44 : 0)
     }
 
+    private var currentExtraExpandedWidth: CGFloat {
+        AppState.shared.activeNotchFilter == .notes ? 140 : 0
+    }
+
     private func expandedPanelRect(screen: NSScreen) -> NSRect {
         let notchRect = calculateNotchRect(screen: screen)
         let height = expandedSize.height + currentExtraExpandedHeight
+        let width = expandedSize.width + currentExtraExpandedWidth
         return NSRect(
-            x: notchRect.midX - expandedSize.width / 2,
+            x: notchRect.midX - width / 2,
             y: notchRect.maxY - height,
-            width: expandedSize.width,
+            width: width,
             height: height
         )
     }
@@ -736,13 +741,14 @@ class NotchController: ObservableObject {
 
     private func calculateMaxPanelFrame(screen: NSScreen) -> NSRect {
         let notchRect = calculateNotchRect(screen: screen)
-        // +90 headroom so the shape can grow for the filter bar and the
-        // Notes tab without being cut off by the panel bounds.
+        // +90/+160 headroom so the shape can grow for the filter bar and
+        // the wider Notes tab without being cut off by the panel bounds.
         let height = expandedSize.height + 90
+        let width = expandedSize.width + 160
         return NSRect(
-            x: notchRect.midX - expandedSize.width / 2,
+            x: notchRect.midX - width / 2,
             y: screen.frame.maxY - height,
-            width: expandedSize.width,
+            width: width,
             height: height
         )
     }

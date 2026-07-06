@@ -147,31 +147,24 @@ final class ReminderStore: ObservableObject {
         let predicate = eventStore.predicateForReminders(in: calendars)
         // EKReminder isn't Sendable — snapshot into value types INSIDE the
         // fetch callback so only plain values cross back to the main actor.
+        // Checklist model: every open item, plus recently completed ones so
+        // the "done" list stays visible for the satisfaction of checking off.
         let snapshot: [UpcomingReminder] = await withCheckedContinuation { cont in
             eventStore.fetchReminders(matching: predicate) { result in
-                let endOfTomorrow = Calendar.current.startOfDay(for: Date())
-                    .addingTimeInterval(2 * 86400)
-                let items = (result ?? [])
-                    .filter { reminder in
-                        if reminder.isCompleted { return false }
-                        guard let comps = reminder.dueDateComponents,
-                              let due = Calendar.current.date(from: comps) else {
-                            return true   // undated reminders stay visible
-                        }
-                        return due < endOfTomorrow   // today, overdue, tomorrow
-                    }
-                    .map { reminder -> UpcomingReminder in
-                        let due = reminder.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
-                        return UpcomingReminder(
-                            id: reminder.calendarItemIdentifier,
-                            title: reminder.title ?? "",
-                            dueDate: due,
-                            isOverdue: due.map { $0 < Date() } ?? false,
-                            isCompleted: reminder.isCompleted
-                        )
-                    }
+                let all = (result ?? []).map { reminder -> UpcomingReminder in
+                    let due = reminder.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
+                    return UpcomingReminder(
+                        id: reminder.calendarItemIdentifier,
+                        title: reminder.title ?? "",
+                        dueDate: due,
+                        isOverdue: due.map { $0 < Date() } ?? false,
+                        isCompleted: reminder.isCompleted
+                    )
+                }
+                let open = all.filter { !$0.isCompleted }
                     .sorted { ($0.dueDate ?? .distantFuture) < ($1.dueDate ?? .distantFuture) }
-                cont.resume(returning: items)
+                let done = all.filter { $0.isCompleted }.suffix(10)
+                cont.resume(returning: open + done)
             }
         }
 
