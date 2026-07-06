@@ -264,10 +264,20 @@ struct NotchExpandedView: View {
                     if filter == .all && !shelf.items.isEmpty { sectionDivider }
                 }
 
-                // 3. SHOTS
-                ForEach(filteredScreenshots) { item in
-                    ScreenshotThumbnailView(item: item)
-                        .transition(galleryTransition)
+                // 3. SHOTS — under "All", 3+ screenshots collapse into one
+                //    fanned pile; clicking it opens the full Shots list.
+                if filter == .all && appState.screenshots.count >= 3 {
+                    StackedShotsCard(items: appState.screenshots) {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            filter = .screenshots
+                        }
+                    }
+                    .transition(galleryTransition)
+                } else {
+                    ForEach(filteredScreenshots) { item in
+                        ScreenshotThumbnailView(item: item)
+                            .transition(galleryTransition)
+                    }
                 }
 
                 // 4. PINNED + RECENT clipboard
