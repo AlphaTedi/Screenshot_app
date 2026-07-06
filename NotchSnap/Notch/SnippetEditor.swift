@@ -13,7 +13,7 @@ struct NewSnippetTile: View {
             VStack(spacing: 6) {
                 Image(systemName: "plus")
                     .font(.system(size: 16, weight: .semibold))
-                Text("New Snippet")
+                Text(L10n.t("snippet.new"))
                     .font(.system(size: 9, weight: .medium))
             }
             .foregroundStyle(.white.opacity(hover ? 0.9 : 0.55))
@@ -103,11 +103,11 @@ private struct SnippetEditorView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(editingID == nil ? "New Snippet" : "Edit Snippet")
+            Text(editingID == nil ? L10n.t("snippet.newTitle") : L10n.t("snippet.editTitle"))
                 .font(.system(size: 15, weight: .semibold))
                 .padding(.top, 14)
 
-            TextField("Label (e.g. Email sign-off)", text: $initialLabel)
+            TextField(L10n.t("snippet.labelPlaceholder"), text: $initialLabel)
                 .textFieldStyle(.roundedBorder)
 
             TextEditor(text: $initialContent)
@@ -126,9 +126,9 @@ private struct SnippetEditorView: View {
 
             HStack {
                 Spacer()
-                Button("Cancel") { onDone() }
+                Button(L10n.t("snippet.cancel")) { onDone() }
                     .keyboardShortcut(.cancelAction)
-                Button(editingID == nil ? "Create" : "Save") {
+                Button(editingID == nil ? L10n.t("snippet.create") : L10n.t("snippet.saveButton")) {
                     let label = initialLabel.trimmingCharacters(in: .whitespaces)
                     let content = initialContent.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !content.isEmpty else { return }

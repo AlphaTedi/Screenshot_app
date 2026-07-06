@@ -49,6 +49,13 @@ class CaptureManager: ObservableObject {
 
     /// Call on app launch to warm the cache — only starts refreshing if permission is granted
     func warmContentCache() {
+        // On a fresh install, calling ScreenCaptureKit without permission makes
+        // macOS throw its own permission dialog at launch — stepping on the
+        // onboarding flow. Check passively first; onboarding owns the ask.
+        guard CGPreflightScreenCaptureAccess() else {
+            print("[CaptureManager] No screen recording permission yet — skipping cache warm")
+            return
+        }
         prefetchTask = Task.detached(priority: .userInitiated) {
             // Single attempt — if it fails, permission isn't granted yet
             let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
@@ -94,6 +101,14 @@ class CaptureManager: ObservableObject {
         }
     }
 
+    /// Radius for the rounded-corner output option: proportional to the
+    /// capture (in pixels, so Retina scale is handled), clamped so tiny
+    /// crops don't become pills and huge grabs don't look barely-rounded.
+    static func roundedCornerRadius(for image: CGImage) -> CGFloat {
+        let minDim = CGFloat(min(image.width, image.height))
+        return min(48, max(16, minDim * 0.035))
+    }
+
     func setupHotkeyObservers() {
         NotificationCenter.default.addObserver(
             forName: .captureAreaSilent,
@@ -133,7 +148,7 @@ class CaptureManager: ObservableObject {
         defer { isCapturing = false }
 
         do {
-            let image: CGImage
+            var image: CGImage
             switch mode {
             case .area:
                 image = try await captureArea()
@@ -141,6 +156,12 @@ class CaptureManager: ObservableObject {
                 image = try await captureWindow()
             case .fullscreen:
                 image = try await captureFullscreen()
+            }
+
+            // Optional rounded corners for area captures (toolbar toggle).
+            if mode == .area, UserDefaults.standard.bool(forKey: "captureRoundedCorners") {
+                let radius = Self.roundedCornerRadius(for: image)
+                image = ImageRoundedCornerMask.apply(to: image, cornerRadius: radius) ?? image
             }
 
             print("[CaptureManager] Capture succeeded: \(image.width)x\(image.height)")
@@ -264,6 +285,13 @@ class CaptureManager: ObservableObject {
             if isWindowSnap {
                 let scale = CGFloat(rawImage.width) / max(rect.width, 1)
                 rawImage = ImageRoundedCornerMask.apply(to: rawImage, cornerRadius: 10 * scale) ?? rawImage
+            }
+
+            // Optional rounded corners (toolbar toggle) — window snaps already
+            // carry the window's own radius, so don't double-round those.
+            if !isWindowSnap, UserDefaults.standard.bool(forKey: "captureRoundedCorners") {
+                let radius = Self.roundedCornerRadius(for: rawImage)
+                rawImage = ImageRoundedCornerMask.apply(to: rawImage, cornerRadius: radius) ?? rawImage
             }
 
             // Composite annotations onto the captured image

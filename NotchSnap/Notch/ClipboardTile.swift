@@ -57,7 +57,7 @@ struct ClipboardTile: View {
 
                 // Quick Copy button
                 Button(action: quickCopy) {
-                    Text(justCopied ? "\u{2713} Copied" : "Quick Copy")
+                    Text(justCopied ? L10n.t("tile.copied") : L10n.t("tile.quickCopy"))
                         .font(.system(size: 10, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .frame(height: 22)
@@ -96,26 +96,26 @@ struct ClipboardTile: View {
         .contextMenu {
             switch item.kind {
             case .history:
-                Button("Pin") { appState.pinClipboardItem(item) }
-                Button("Copy") { quickCopy() }
+                Button(L10n.t("action.pin")) { appState.pinClipboardItem(item) }
+                Button(L10n.t("action.copy")) { quickCopy() }
                 Divider()
-                Button("Delete", role: .destructive) {
+                Button(L10n.t("action.delete"), role: .destructive) {
                     appState.removeClipboardItem(id: item.id)
                 }
             case .pinned:
-                Button("Unpin") { appState.unpinClipboardItem(id: item.id) }
-                Button("Copy") { quickCopy() }
+                Button(L10n.t("action.unpin")) { appState.unpinClipboardItem(id: item.id) }
+                Button(L10n.t("action.copy")) { quickCopy() }
                 Divider()
-                Button("Move Left")  { appState.moveClipboardEntry(id: item.id, direction: -1) }
-                Button("Move Right") { appState.moveClipboardEntry(id: item.id, direction: 1) }
+                Button(L10n.t("action.moveLeft"))  { appState.moveClipboardEntry(id: item.id, direction: -1) }
+                Button(L10n.t("action.moveRight")) { appState.moveClipboardEntry(id: item.id, direction: 1) }
             case .snippet:
-                Button("Edit\u{2026}") { SnippetEditorController.shared.show(editing: item) }
-                Button("Copy") { quickCopy() }
+                Button(L10n.t("action.edit")) { SnippetEditorController.shared.show(editing: item) }
+                Button(L10n.t("action.copy")) { quickCopy() }
                 Divider()
-                Button("Move Left")  { appState.moveClipboardEntry(id: item.id, direction: -1) }
-                Button("Move Right") { appState.moveClipboardEntry(id: item.id, direction: 1) }
+                Button(L10n.t("action.moveLeft"))  { appState.moveClipboardEntry(id: item.id, direction: -1) }
+                Button(L10n.t("action.moveRight")) { appState.moveClipboardEntry(id: item.id, direction: 1) }
                 Divider()
-                Button("Delete", role: .destructive) {
+                Button(L10n.t("action.delete"), role: .destructive) {
                     appState.removeSnippet(id: item.id)
                 }
             }

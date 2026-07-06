@@ -38,6 +38,7 @@
 		7F0BFF55548F7C161DF3B435 /* AnnotationCanvas.swift in Sources */ = {isa = PBXBuildFile; fileRef = 301237CAA34036B66D14C7D8 /* AnnotationCanvas.swift */; };
 		9B5B414A97835E27F0FEF62B /* TextBlockOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 832E446F8E89ED0271805F51 /* TextBlockOverlay.swift */; };
 		A0AB4C4959DAA42A0BA5CFF0 /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4A97437F68ABBA30F9930CE /* EditorView.swift */; };
+		EE41AA42BB43CC44DD45FF46 /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF46EE41AA42BB43CC44DD45 /* Localization.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* HapticManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E2 /* HapticManager.swift */; };
 		A9B0C1D2E3F40516273849FA /* NotchNotificationContent.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0C1D2E3F4051627384A5B6C /* NotchNotificationContent.swift */; };
 		AA00BB11CC22DD33EE44FF01 /* screenshot_capture.aiff in Resources */ = {isa = PBXBuildFile; fileRef = AA00BB11CC22DD33EE44FF11 /* screenshot_capture.aiff */; };
@@ -139,6 +140,7 @@
 		E62FE9045233B6EA30ECEA08 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		EF1ECF0DFBC785BB92246FBF /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
 		F008497BB5485486B0CAEB8D /* TextExtractionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TextExtractionView.swift; path = NotchSnap/Capture/TextExtractionView.swift; sourceTree = SOURCE_ROOT; };
+		FF46EE41AA42BB43CC44DD45 /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Localization.swift; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* HapticManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HapticManager.swift; sourceTree = "<group>"; };
 		F1EA42834D96C02C1D8EEF9C /* BrushSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrushSettings.swift; sourceTree = "<group>"; };
 		F4A97437F68ABBA30F9930CE /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
@@ -300,6 +302,7 @@
 				7E448751D10ABC85AA452AC3 /* Permissions.swift */,
 				2F1B783B764932999A1FEF0B /* SettingsView.swift */,
 				A32063A8096DCB7171E34409 /* OnboardingView.swift */,
+				FF46EE41AA42BB43CC44DD45 /* Localization.swift */,
 				F1A2B3C4D5E6F7A8B9C0D1E2 /* HapticManager.swift */,
 				DD44EE55FF66AA11BB22CC33 /* NotchLivePreview.swift */,
 				2233445566778899AABB0011 /* OnboardingWindowController.swift */,
@@ -450,6 +453,7 @@
 				FE62E7C2F0BE73FC986B32FA /* ExportManager.swift in Sources */,
 				58E49326D849B64D6ECF2FB4 /* DragImageProvider.swift in Sources */,
 				ECAA4E5189FA21B6FD281652 /* TempFileManager.swift in Sources */,
+				EE41AA42BB43CC44DD45FF46 /* Localization.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* HapticManager.swift in Sources */,
 				AA11BB22CC33DD44EE55FF66 /* NotchAnimation.swift in Sources */,
 				CC33DD44EE55FF66AA11BB22 /* NotchLivePreview.swift in Sources */,

@@ -307,6 +307,12 @@ private func settingsBinding<T>(_ appState: AppState, _ keyPath: WritableKeyPath
 
 struct GeneralSettingsView: View {
     @EnvironmentObject var appState: AppState
+    // @AppStorage publishes changes so the toggles actually re-render.
+    // (Raw UserDefaults bindings looked "stuck" — the value changed but
+    // SwiftUI never knew to redraw the checkbox.)
+    @AppStorage("soundEffectsEnabled") private var soundEffectsEnabled = true
+    @AppStorage("hapticFeedback") private var hapticFeedback = true
+    @AppStorage(L10n.storageKey) private var appLanguage = "system"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -346,20 +352,11 @@ struct GeneralSettingsView: View {
                     rowText("Capture sound", "Play the system shutter sound on capture.")
                 }
                 Divider()
-                Toggle(isOn: Binding(
-                    get: {
-                        UserDefaults.standard.object(forKey: "soundEffectsEnabled") == nil
-                            || UserDefaults.standard.bool(forKey: "soundEffectsEnabled")
-                    },
-                    set: { UserDefaults.standard.set($0, forKey: "soundEffectsEnabled") }
-                )) {
+                Toggle(isOn: $soundEffectsEnabled) {
                     rowText("Interface sound effects", "Subtle clicks for the notch and clipboard tiles.")
                 }
                 Divider()
-                Toggle(isOn: Binding(
-                    get: { UserDefaults.standard.bool(forKey: "hapticFeedback") },
-                    set: { UserDefaults.standard.set($0, forKey: "hapticFeedback") }
-                )) {
+                Toggle(isOn: $hapticFeedback) {
                     rowText("Haptic feedback", "Trackpad taps when the notch expands or you copy.")
                 }
             }
@@ -368,6 +365,19 @@ struct GeneralSettingsView: View {
                 Toggle(isOn: settingsBinding(appState, \.autoCopyToClipboard)) {
                     rowText("Auto-copy to clipboard", "Copy every new screenshot automatically.")
                 }
+            }
+
+            SettingsSection_Card(
+                title: L10n.t("settings.language"),
+                subtitle: L10n.t("settings.language.subtitle")
+            ) {
+                Picker("", selection: $appLanguage) {
+                    ForEach(AppLanguage.allCases) { lang in
+                        Text(lang.label).tag(lang.rawValue)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
         }
     }

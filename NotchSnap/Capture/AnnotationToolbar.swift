@@ -20,6 +20,10 @@ struct AnnotationToolbar: View {
     var onCopy: (() -> Void)? = nil
     var onSave: (() -> Void)? = nil
 
+    // Output option: round the corners of the final capture. Persisted so
+    // the choice sticks between captures; read by CaptureManager on export.
+    @AppStorage("captureRoundedCorners") private var roundedCorners = false
+
     static let paletteColors: [NSColor] = [
         NSColor(red: 1.0,   green: 0.231, blue: 0.188, alpha: 1),  // #FF3B30
         NSColor(red: 1.0,   green: 0.584, blue: 0.0,   alpha: 1),  // #FF9500
@@ -60,6 +64,22 @@ struct AnnotationToolbar: View {
                     .buttonStyle(.plain)
                     .help("Extract text (X)")
                 }
+
+                // Rounded-corner output toggle — square icon ↔ rounded icon
+                Button {
+                    roundedCorners.toggle()
+                } label: {
+                    Image(systemName: roundedCorners ? "app.fill" : "square")
+                        .font(.system(size: 14))
+                        .foregroundStyle(roundedCorners ? Color.accentColor : .secondary)
+                        .frame(width: 30, height: 30)
+                        .background(
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(roundedCorners ? Color.accentColor.opacity(0.15) : .clear)
+                        )
+                }
+                .buttonStyle(.plain)
+                .help(roundedCorners ? "Rounded corners: on" : "Rounded corners: off")
             }
 
             toolbarDivider

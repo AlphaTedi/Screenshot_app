@@ -11,15 +11,26 @@ class OnboardingWindowController: NSWindowController {
         if sharedController == nil {
             sharedController = OnboardingWindowController()
         }
+        // The app may be running as an accessory (no Dock icon) — become a
+        // regular app first, or the window can silently stay behind others
+        // on a fresh install.
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
         sharedController?.showWindow(nil)
         sharedController?.window?.center()
         sharedController?.window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        sharedController?.window?.orderFrontRegardless()
     }
 
     static func dismiss() {
         sharedController?.window?.close()
         sharedController = nil
+        // Return to menu-bar-only mode if the user keeps the Dock icon off.
+        Task { @MainActor in
+            if !AppState.shared.settings.showInDock {
+                NSApp.setActivationPolicy(.accessory)
+            }
+        }
     }
 
     convenience init() {

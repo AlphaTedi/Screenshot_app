@@ -179,6 +179,8 @@ class AppState: ObservableObject {
         if let last = clipboardItems.first,
            last.previewText == item.previewText && last.type == item.type { return }
 
+        pruneStaleClipboardItems()
+
         withAnimation(.spring(duration: 0.42, bounce: 0.25)) {
             clipboardItems.insert(item, at: 0)
             if clipboardItems.count > maxClipboardItems {
@@ -186,6 +188,15 @@ class AppState: ObservableObject {
             }
         }
         HapticManager.shared.clipboardItemAdded()
+    }
+
+    /// PERF: an all-day session accumulates stale history that makes the
+    /// gallery long and scrolling laggy. Rolling history older than 8 hours
+    /// quietly drops off (pinned items and snippets are untouched — they
+    /// live in their own arrays).
+    func pruneStaleClipboardItems() {
+        let cutoff = Date().addingTimeInterval(-8 * 3600)
+        clipboardItems.removeAll { $0.capturedAt < cutoff }
     }
 
     func removeClipboardItem(id: UUID) {

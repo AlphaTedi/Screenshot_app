@@ -83,14 +83,14 @@ struct ScreenshotThumbnailView: View {
             }
         }
         .contextMenu {
-            Button("Copy") {
+            Button(L10n.t("action.copy")) {
                 appState.copyToClipboard(item)
             }
-            Button("Save...") {
+            Button(L10n.t("action.save")) {
                 try? appState.saveToFile(item)
             }
             Divider()
-            Button("Delete", role: .destructive) {
+            Button(L10n.t("action.delete"), role: .destructive) {
                 deleteItem(item)
             }
         }

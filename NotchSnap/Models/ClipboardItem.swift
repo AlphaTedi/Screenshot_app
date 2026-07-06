@@ -57,7 +57,11 @@ struct ClipboardItem: Identifiable {
                 type: isScreenshot ? .screenshot : .image,
                 rawData: image.tiffRepresentation,
                 pasteboardTypes: pb.types ?? [],
-                previewImage: image
+                // PERF: tiles are ~130pt wide — rendering the full-resolution
+                // pasteboard image in every tile made scrolling lag once the
+                // gallery grew. Preview is a small downsample; rawData keeps
+                // the original for re-copy.
+                previewImage: image.downsampled(maxDimension: 320)
             )
         }
 
@@ -170,11 +174,8 @@ struct ClipboardItem: Identifiable {
     // MARK: - Relative Time
 
     var relativeTime: String {
-        let interval = Date().timeIntervalSince(capturedAt)
-        if interval < 60 { return "ora" }
-        if interval < 3600 { return "\(Int(interval / 60)) min fa" }
-        if interval < 86400 { return "\(Int(interval / 3600)) h fa" }
-        return "\(Int(interval / 86400)) g fa"
+        // Localized to the app language (was hardcoded Italian).
+        L10n.relativeTime(from: capturedAt)
     }
 
     // MARK: - Notch Notification Properties
@@ -257,6 +258,27 @@ extension ClipboardItem.ClipboardItemType {
         case "number":     return .number
         default:           return .unknown
         }
+    }
+}
+
+// MARK: - NSImage downsampling helper
+
+extension NSImage {
+    /// Returns a copy scaled so its longest side is `maxDimension` points.
+    /// Images already smaller are returned as-is.
+    func downsampled(maxDimension: CGFloat) -> NSImage {
+        let longest = max(size.width, size.height)
+        guard longest > maxDimension, longest > 0 else { return self }
+        let scale = maxDimension / longest
+        let newSize = NSSize(width: size.width * scale, height: size.height * scale)
+        let result = NSImage(size: newSize)
+        result.lockFocus()
+        NSGraphicsContext.current?.imageInterpolation = .medium
+        draw(in: NSRect(origin: .zero, size: newSize),
+             from: NSRect(origin: .zero, size: size),
+             operation: .copy, fraction: 1.0)
+        result.unlockFocus()
+        return result
     }
 }
 

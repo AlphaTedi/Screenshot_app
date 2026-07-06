@@ -204,10 +204,7 @@ struct ScreenshotItem: Identifiable {
     // MARK: - Relative Time
 
     var relativeTime: String {
-        let interval = Date().timeIntervalSince(capturedAt)
-        if interval < 60 { return "ora" }
-        if interval < 3600 { return "\(Int(interval / 60)) min fa" }
-        if interval < 86400 { return "\(Int(interval / 3600)) h fa" }
-        return "\(Int(interval / 86400)) g fa"
+        // Localized to the app language (was hardcoded Italian).
+        L10n.relativeTime(from: capturedAt)
     }
 }

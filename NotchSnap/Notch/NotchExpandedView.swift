@@ -39,12 +39,12 @@ enum NotchContentFilter: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .all:         return "All"
-        case .tray:        return "Tray"
-        case .screenshots: return "Shots"
-        case .snippets:    return "Snippets"
-        case .links:       return "Links"
-        case .text:        return "Text"
+        case .all:         return L10n.t("filter.all")
+        case .tray:        return L10n.t("filter.tray")
+        case .screenshots: return L10n.t("filter.shots")
+        case .snippets:    return L10n.t("filter.snippets")
+        case .links:       return L10n.t("filter.links")
+        case .text:        return L10n.t("filter.text")
         }
     }
 
@@ -64,6 +64,8 @@ enum NotchContentFilter: String, CaseIterable, Identifiable {
 
 struct NotchExpandedView: View {
     @EnvironmentObject var appState: AppState
+    // Re-render when the language override changes.
+    @AppStorage(L10n.storageKey) private var appLanguage = "system"
     @ObservedObject private var shelf = ShelfStore.shared
     @State private var appeared = false
     @State private var filter: NotchContentFilter = .all
@@ -149,6 +151,8 @@ struct NotchExpandedView: View {
                 appeared = true
             }
             consumePendingFilter()
+            // Keep the gallery lean — drop rolling history older than 8h.
+            appState.pruneStaleClipboardItems()
         }
         .onChange(of: appState.pendingNotchFilter) { _ in
             consumePendingFilter()
@@ -207,7 +211,7 @@ struct NotchExpandedView: View {
                 .opacity(appeared ? 1.0 : 0.0)
                 .animation(.spring(response: 0.38, dampingFraction: 0.62), value: appeared)
 
-            Text("No content yet.\nTake a screenshot, copy something, or drop a file.")
+            Text(L10n.t("notch.empty"))
                 .font(.system(size: 11))
                 .foregroundColor(.white.opacity(0.5))
                 .multilineTextAlignment(.center)
@@ -228,17 +232,6 @@ struct NotchExpandedView: View {
         .asymmetric(
             insertion: .move(edge: .trailing).combined(with: .opacity).combined(with: .scale(scale: 0.72, anchor: .trailing)),
             removal: .move(edge: .leading).combined(with: .opacity)
-        )
-    }
-
-    /// Dropped files "fall into" the notch: they arrive from above,
-    /// slightly oversized, and spring down into place.
-    private var trayTransition: AnyTransition {
-        .asymmetric(
-            insertion: .move(edge: .top)
-                .combined(with: .scale(scale: 1.18, anchor: .top))
-                .combined(with: .opacity),
-            removal: .scale(scale: 0.8).combined(with: .opacity)
         )
     }
 
@@ -266,7 +259,7 @@ struct NotchExpandedView: View {
                 if showsTraySection {
                     ForEach(shelf.items) { item in
                         TrayCard(item: item)
-                            .transition(trayTransition)
+                            .transition(galleryTransition)
                     }
                     if filter == .all && !shelf.items.isEmpty { sectionDivider }
                 }
@@ -329,15 +322,16 @@ private struct ClearTrayChip: View {
             HStack(spacing: 4) {
                 Image(systemName: "paintbrush")
                     .font(.system(size: 9, weight: .semibold))
-                Text("Clear")
+                Text(L10n.t("tray.clear"))
                     .font(.system(size: 10, weight: .medium))
             }
-            .foregroundStyle(Color.white.opacity(hover ? 0.95 : 0.55))
+            // Destructive styling — this deletes tray content.
+            .foregroundStyle(hover ? Color.white : Color.red.opacity(0.9))
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
                 Capsule(style: .continuous)
-                    .fill(Color.white.opacity(hover ? 0.16 : 0.06))
+                    .fill(hover ? Color.red.opacity(0.85) : Color.red.opacity(0.15))
             )
             .contentShape(Capsule())
         }
