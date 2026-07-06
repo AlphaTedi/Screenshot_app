@@ -45,6 +45,10 @@ class AppState: ObservableObject {
     /// Set by ScreenshotThumbnailView and ClipboardTile in their .onHover.
     @Published var hoveredQuickLookItem: QuickLookItem? = nil
 
+    /// Filter currently shown in the expanded notch — lets the shape grow
+    /// for tabs that need more room (e.g. Notes).
+    @Published var activeNotchFilter: NotchContentFilter = .all
+
     /// One-shot request to open the notch gallery on a specific filter —
     /// e.g. a file drag touching the notch opens straight onto the Tray.
     /// Consumed (reset to nil) by NotchExpandedView.

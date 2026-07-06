@@ -7,8 +7,9 @@ import SwiftUI
 extension AppState {
     var notchAvailableFilters: [NotchContentFilter] {
         var result: [NotchContentFilter] = []
-        // Tray is always offered — its empty state IS the drop-zone invitation.
+        // Tray and Notes are always offered — they're tools, not content.
         result.append(.tray)
+        result.append(.notes)
         if !screenshots.isEmpty
             || clipboardItems.contains(where: { $0.type == .screenshot || $0.type == .image }) {
             result.append(.screenshots)
@@ -34,7 +35,7 @@ extension AppState {
 }
 
 enum NotchContentFilter: String, CaseIterable, Identifiable {
-    case all, tray, screenshots, snippets, links, text
+    case all, tray, screenshots, snippets, links, text, notes
     var id: String { rawValue }
 
     var label: String {
@@ -45,6 +46,7 @@ enum NotchContentFilter: String, CaseIterable, Identifiable {
         case .snippets:    return L10n.t("filter.snippets")
         case .links:       return L10n.t("filter.links")
         case .text:        return L10n.t("filter.text")
+        case .notes:       return L10n.t("filter.notes")
         }
     }
 
@@ -56,6 +58,7 @@ enum NotchContentFilter: String, CaseIterable, Identifiable {
         case .snippets:    return "text.badge.star"
         case .links:       return "link"
         case .text:        return "text.alignleft"
+        case .notes:       return "note.text"
         }
     }
 }
@@ -98,7 +101,7 @@ struct NotchExpandedView: View {
             return appState.clipboardItems.filter {
                 $0.type != .url && $0.type != .screenshot && $0.type != .image
             }
-        case .tray, .snippets:
+        case .tray, .snippets, .notes:
             return []
         }
     }
@@ -111,15 +114,17 @@ struct NotchExpandedView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if hasContent {
-                if showsFilterBar {
-                    filterBar
-                }
-                if filter == .tray && shelf.items.isEmpty {
-                    TrayEmptyState()
-                } else {
-                    galleryView
-                }
+            // The bar always shows — Tray and Notes are tools that must stay
+            // reachable even before any content exists.
+            if showsFilterBar {
+                filterBar
+            }
+            if filter == .notes {
+                NotesTabView()
+            } else if filter == .tray && shelf.items.isEmpty {
+                TrayEmptyState()
+            } else if hasContent {
+                galleryView
             } else {
                 emptyState
             }
@@ -159,6 +164,9 @@ struct NotchExpandedView: View {
         }
         .onDisappear {
             appeared = false
+        }
+        .onChange(of: filter) { f in
+            appState.activeNotchFilter = f
         }
         .onChange(of: showsFilterBar) { shows in
             // If content shrank to a single category, fall back to All so

@@ -692,9 +692,9 @@ class NotchController: ObservableObject {
 
     private func calculateMaxPanelFrame(screen: NSScreen) -> NSRect {
         let notchRect = calculateNotchRect(screen: screen)
-        // +40 headroom so the shape can grow for the filter bar without
-        // being cut off by the panel bounds.
-        let height = expandedSize.height + 40
+        // +90 headroom so the shape can grow for the filter bar and the
+        // Notes tab without being cut off by the panel bounds.
+        let height = expandedSize.height + 90
         return NSRect(
             x: notchRect.midX - expandedSize.width / 2,
             y: screen.frame.maxY - height,

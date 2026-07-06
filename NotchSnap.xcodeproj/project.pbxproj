@@ -19,6 +19,9 @@
 		1F1C19FC2912D0907E997C14 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1B783B764932999A1FEF0B /* SettingsView.swift */; };
 		26504C0E30844C5DE4A714D0 /* ScreenshotThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E508D99C46879A8DA66334DC /* ScreenshotThumbnail.swift */; };
 		27166015FCAE31F70531F06E /* DraggableThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6572154902DB2B43B66642FD /* DraggableThumbnail.swift */; };
+		EE61AA62BB63CC64DD65FF66 /* NotesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF66EE61AA62BB63CC64DD65 /* NotesStore.swift */; };
+		EE71AA72BB73CC74DD75FF76 /* ReminderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF76EE71AA72BB73CC74DD75 /* ReminderStore.swift */; };
+		EE81AA82BB83CC84DD85FF86 /* NotesTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF86EE81AA82BB83CC84DD85 /* NotesTabView.swift */; };
 		34206B5CC6892130A876AA8D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D58F1FF901A1783872C9729 /* AppState.swift */; };
 		37652F7F7FBFA964645BE56D /* BrushSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EA42834D96C02C1D8EEF9C /* BrushSettings.swift */; };
 		38F87319A059013239C87E89 /* UniformTypeIdentifiers.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3B22A96DBB186DC42DE53C4A /* UniformTypeIdentifiers.framework */; };
@@ -108,6 +111,9 @@
 		832E446F8E89ED0271805F51 /* TextBlockOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TextBlockOverlay.swift; path = NotchSnap/Capture/TextBlockOverlay.swift; sourceTree = SOURCE_ROOT; };
 		84C92F197DAF6CED42810033 /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
 		96E1B1ED1D889C06D708A9E8 /* NotchRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchRootView.swift; sourceTree = "<group>"; };
+		FF66EE61AA62BB63CC64DD65 /* NotesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotesStore.swift; path = ../Notes/NotesStore.swift; sourceTree = "<group>"; };
+		FF76EE71AA72BB73CC74DD75 /* ReminderStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ReminderStore.swift; path = ../Notes/ReminderStore.swift; sourceTree = "<group>"; };
+		FF86EE81AA82BB83CC84DD85 /* NotesTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NotesTabView.swift; path = ../Notes/NotesTabView.swift; sourceTree = "<group>"; };
 		9D58F1FF901A1783872C9729 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60001A2B3C4D5 /* ClipboardItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardItem.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F60002A2B3C4D5 /* ClipboardMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardMonitor.swift; sourceTree = "<group>"; };
@@ -298,6 +304,9 @@
 			isa = PBXGroup;
 			children = (
 				062184B7EC8B322870D2AA99 /* NotchSnapApp.swift */,
+				FF66EE61AA62BB63CC64DD65 /* NotesStore.swift */,
+				FF76EE71AA72BB73CC74DD75 /* ReminderStore.swift */,
+				FF86EE81AA82BB83CC84DD85 /* NotesTabView.swift */,
 				9D58F1FF901A1783872C9729 /* AppState.swift */,
 				7E448751D10ABC85AA452AC3 /* Permissions.swift */,
 				2F1B783B764932999A1FEF0B /* SettingsView.swift */,
@@ -422,6 +431,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				DBF0219716788E89C7DE812C /* NotchSnapApp.swift in Sources */,
+				EE61AA62BB63CC64DD65FF66 /* NotesStore.swift in Sources */,
+				EE71AA72BB73CC74DD75FF76 /* ReminderStore.swift in Sources */,
+				EE81AA82BB83CC84DD85FF86 /* NotesTabView.swift in Sources */,
 				34206B5CC6892130A876AA8D /* AppState.swift in Sources */,
 				657AB5F9E15A081311DC817B /* Permissions.swift in Sources */,
 				1F1C19FC2912D0907E997C14 /* SettingsView.swift in Sources */,
