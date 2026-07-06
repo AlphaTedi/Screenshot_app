@@ -17,7 +17,6 @@
 		11223344556677889900AABB /* OnboardingWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2233445566778899AABB0011 /* OnboardingWindowController.swift */; };
 		AABBCCDD11223344EEFF5566 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCCDDEE22334455FF667700 /* SettingsWindowController.swift */; };
 		1F1C19FC2912D0907E997C14 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F1B783B764932999A1FEF0B /* SettingsView.swift */; };
-		EE51AA52BB53CC54DD55FF56 /* StackedShotsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF56EE51AA52BB53CC54DD55 /* StackedShotsCard.swift */; };
 		26504C0E30844C5DE4A714D0 /* ScreenshotThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E508D99C46879A8DA66334DC /* ScreenshotThumbnail.swift */; };
 		27166015FCAE31F70531F06E /* DraggableThumbnail.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6572154902DB2B43B66642FD /* DraggableThumbnail.swift */; };
 		34206B5CC6892130A876AA8D /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D58F1FF901A1783872C9729 /* AppState.swift */; };
@@ -137,7 +136,6 @@
 		D7942B954C2418CDD5041B8A /* NotchShapeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchShapeView.swift; sourceTree = "<group>"; };
 		DD44EE55FF66AA11BB22CC33 /* NotchLivePreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchLivePreview.swift; sourceTree = "<group>"; };
 		E11C6826B4E5FD3038B093AE /* DrawingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DrawingEngine.swift; sourceTree = "<group>"; };
-		FF56EE51AA52BB53CC54DD55 /* StackedShotsCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StackedShotsCard.swift; sourceTree = "<group>"; };
 		E508D99C46879A8DA66334DC /* ScreenshotThumbnail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenshotThumbnail.swift; sourceTree = "<group>"; };
 		E62FE9045233B6EA30ECEA08 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		EF1ECF0DFBC785BB92246FBF /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
@@ -323,7 +321,6 @@
 				D7942B954C2418CDD5041B8A /* NotchShapeView.swift */,
 				96E1B1ED1D889C06D708A9E8 /* NotchRootView.swift */,
 				517D724F18CF2E7DAF0B50FD /* NotchExpandedView.swift */,
-				FF56EE51AA52BB53CC54DD55 /* StackedShotsCard.swift */,
 				E508D99C46879A8DA66334DC /* ScreenshotThumbnail.swift */,
 				AE1C8BB9B43739356470D3C5 /* DraggableImageView.swift */,
 				6572154902DB2B43B66642FD /* DraggableThumbnail.swift */,
@@ -442,7 +439,6 @@
 				57FD7FB54260751DC5FD3F66 /* NotchShapeView.swift in Sources */,
 				AA5CA730912737A5ABBADA14 /* NotchRootView.swift in Sources */,
 				783F0A910ED1AA000D5FAD3B /* NotchExpandedView.swift in Sources */,
-				EE51AA52BB53CC54DD55FF56 /* StackedShotsCard.swift in Sources */,
 				26504C0E30844C5DE4A714D0 /* ScreenshotThumbnail.swift in Sources */,
 				DCC0B9D52A8E0C6C0E5D4E56 /* DraggableImageView.swift in Sources */,
 				27166015FCAE31F70531F06E /* DraggableThumbnail.swift in Sources */,
