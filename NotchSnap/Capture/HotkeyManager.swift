@@ -140,7 +140,9 @@ class HotkeyManager {
             print("[HotkeyManager] ⌃⇧N → Notch on Notes")
             Task { @MainActor in
                 AppState.shared.pendingNotchFilter = .notes
+                AppState.shared.focusNotesComposer = true
                 NotchController.shared.triggerExpand()
+                NotchController.shared.makeKeyForTyping()
             }
 
         case .openTray:

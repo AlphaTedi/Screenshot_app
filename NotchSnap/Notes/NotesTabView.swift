@@ -13,6 +13,7 @@ struct NotesTabView: View {
     @ObservedObject private var notes = NotesStore.shared
     @ObservedObject private var reminders = ReminderStore.shared
 
+    @ObservedObject private var appState = AppState.shared
     @State private var makeReminder = false
     @State private var dueDate = NotesTabView.defaultDue()
     @FocusState private var composerFocused: Bool
@@ -38,6 +39,18 @@ struct NotesTabView: View {
             if reminders.access == .granted {
                 await reminders.refresh()
             }
+        }
+        .onAppear { consumeFocusRequest() }
+        .onChange(of: appState.focusNotesComposer) { _ in consumeFocusRequest() }
+    }
+
+    /// ⌃⇧N wants the caret in the composer immediately. Small delay lets
+    /// the expand animation land and the panel become key first.
+    private func consumeFocusRequest() {
+        guard appState.focusNotesComposer else { return }
+        appState.focusNotesComposer = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            composerFocused = true
         }
     }
 

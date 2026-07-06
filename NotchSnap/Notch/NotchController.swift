@@ -250,6 +250,18 @@ class NotchController: ObservableObject {
         }
     }
 
+    /// Give the notch panel keyboard focus so typing works immediately
+    /// (used by the ⌃⇧N hotkey — the panel is non-activating, so making it
+    /// key doesn't steal the whole app's activation).
+    func makeKeyForTyping() {
+        Task { @MainActor in
+            // Let the expand animation put the panel into its key-able state.
+            try? await Task.sleep(nanoseconds: 80_000_000)
+            (panel as? NotchPanel)?.allowKey = true
+            panel?.makeKey()
+        }
+    }
+
     func cancelCollapse() {
         collapseTask?.cancel()
         collapseTask = nil

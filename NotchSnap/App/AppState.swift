@@ -49,6 +49,10 @@ class AppState: ObservableObject {
     /// for tabs that need more room (e.g. Notes).
     @Published var activeNotchFilter: NotchContentFilter = .all
 
+    /// One-shot request to focus the Notes composer (set by the ⌃⇧N hotkey
+    /// so the user can type immediately). Consumed by NotesTabView.
+    @Published var focusNotesComposer = false
+
     /// One-shot request to open the notch gallery on a specific filter —
     /// e.g. a file drag touching the notch opens straight onto the Tray.
     /// Consumed (reset to nil) by NotchExpandedView.
