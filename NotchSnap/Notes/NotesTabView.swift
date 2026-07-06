@@ -91,16 +91,36 @@ struct NotesTabView: View {
 
             HStack(spacing: 8) {
                 Toggle(isOn: $makeReminder) {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 5) {
                         Image(systemName: "bell")
-                            .font(.system(size: 9, weight: .semibold))
+                            .font(.system(size: 11, weight: .semibold))
                         Text(L10n.t("notes.makeReminder"))
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 11, weight: .semibold))
+                        // Shortcut keycap, same style as the save button's
+                        HStack(spacing: 3) {
+                            Text("\u{2318}")
+                            Text("R")
+                        }
+                        .font(.system(size: 11, weight: .semibold))
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(
+                            RoundedRectangle(cornerRadius: 5, style: .continuous)
+                                .fill(Color.black.opacity(0.25))
+                        )
                     }
+                    .foregroundStyle(makeReminder ? Color.white : .white.opacity(0.6))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(makeReminder ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.08))
+                    )
+                    .contentShape(Capsule())
                 }
                 .toggleStyle(.button)
                 .buttonStyle(.plain)
-                .foregroundStyle(makeReminder ? Color.accentColor : .white.opacity(0.55))
+                .keyboardShortcut("r", modifiers: .command)
                 .onChange(of: makeReminder) { on in
                     if on {
                         dueDate = Self.defaultDue()
