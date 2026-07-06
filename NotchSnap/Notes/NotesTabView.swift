@@ -18,6 +18,10 @@ struct NotesTabView: View {
     @State private var dueDate = NotesTabView.defaultDue()
     @FocusState private var composerFocused: Bool
 
+    private var draftIsEmpty: Bool {
+        notes.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     /// Default due time: the next full hour.
     static func defaultDue() -> Date {
         let cal = Calendar.current
@@ -115,17 +119,33 @@ struct NotesTabView: View {
                 Spacer()
 
                 Button(action: commit) {
-                    Image(systemName: makeReminder ? "bell.badge.fill" : "arrow.down.circle.fill")
-                        .font(.system(size: 15))
-                        .foregroundStyle(
-                            notes.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                ? Color.white.opacity(0.25) : Color.accentColor
-                        )
+                    HStack(spacing: 5) {
+                        Image(systemName: makeReminder ? "bell.badge.fill" : "arrow.down.circle.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text(L10n.t(makeReminder ? "notes.saveButtonReminder" : "notes.saveButtonNote"))
+                            .font(.system(size: 10, weight: .semibold))
+                        // The shortcut, right on the button — no guessing.
+                        Text("\u{2318}\u{21A9}")
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1.5)
+                            .background(
+                                RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                    .fill(Color.white.opacity(0.18))
+                            )
+                    }
+                    .foregroundStyle(draftIsEmpty ? Color.white.opacity(0.3) : Color.white)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 5)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(draftIsEmpty ? Color.white.opacity(0.08) : Color.accentColor)
+                    )
+                    .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
                 .keyboardShortcut(.return, modifiers: .command)
-                .disabled(notes.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                .help(L10n.t(makeReminder ? "notes.saveReminder" : "notes.saveNote"))
+                .disabled(draftIsEmpty)
             }
             .animation(.spring(response: 0.25, dampingFraction: 0.85), value: makeReminder)
         }
