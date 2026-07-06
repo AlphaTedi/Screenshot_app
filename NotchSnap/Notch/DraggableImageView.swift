@@ -17,14 +17,14 @@ class DraggableImageView: NSView, NSDraggingSource, NSPasteboardItemDataProvider
     override func draw(_ dirtyRect: NSRect) {
         guard let image = thumbnailImage else { return }
 
-        // Black background for letterboxing (portrait screenshots get black bars on sides)
         NSColor.black.setFill()
         bounds.fill()
 
-        // Aspect-fit: scale image to fit within bounds preserving aspect ratio
+        // Aspect-FILL: the screenshot covers the whole card, cropped as
+        // needed (even very tall captures) — no letterbox bars.
         let imageSize = image.size
         guard imageSize.width > 0, imageSize.height > 0 else { return }
-        let fitScale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
+        let fitScale = max(bounds.width / imageSize.width, bounds.height / imageSize.height)
         let drawW = imageSize.width * fitScale
         let drawH = imageSize.height * fitScale
         let drawX = (bounds.width - drawW) / 2

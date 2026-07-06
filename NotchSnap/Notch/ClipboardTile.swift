@@ -9,15 +9,41 @@ struct ClipboardTile: View {
     @State private var justCopied = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var isImageCard: Bool {
+        item.type == .screenshot || item.type == .image
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            // Card background
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .overlay(
+            // Card background — image items fill the whole card edge to edge,
+            // with a scrim so the header/button stay readable on top.
+            Group {
+                if isImageCard, let img = item.previewImage {
+                    Image(nsImage: img)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .frame(width: 130, height: 100)
+                        .clipped()
+                        .overlay(
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .black.opacity(0.45), location: 0),
+                                    .init(color: .clear, location: 0.32),
+                                    .init(color: .clear, location: 0.6),
+                                    .init(color: .black.opacity(0.5), location: 1),
+                                ],
+                                startPoint: .top, endPoint: .bottom
+                            )
+                        )
+                } else {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .stroke(Color.white.opacity(0.08), lineWidth: 1)
-                )
+                        .fill(.ultraThinMaterial)
+                }
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
 
             VStack(alignment: .leading, spacing: 0) {
                 // Header: type icon + (snippet label | timestamp) + kind badge
@@ -128,17 +154,9 @@ struct ClipboardTile: View {
     var previewContent: some View {
         switch item.type {
         case .screenshot, .image:
-            if let img = item.previewImage {
-                // Aspect-FIT inside a fixed slot so the card width stays constant;
-                // black letterbox bars fill the empty space for wide/tall captures.
-                Image(nsImage: img)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 42)
-                    .background(Color.black)
-                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-            }
+            // The image already fills the whole card as its background —
+            // the middle of the tile stays clear so it shows through.
+            Color.clear.frame(height: 42)
 
         case .color:
             HStack(spacing: 8) {
