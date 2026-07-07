@@ -1,5 +1,8 @@
 import Foundation
-import EventKit
+// @preconcurrency: EKEventStore/EKCalendar aren't marked Sendable, but the
+// event store is documented thread-safe — the nonisolated fetch helper
+// depends on handing them across without strict-concurrency errors.
+@preconcurrency import EventKit
 import SwiftUI
 
 // MARK: - ReminderStore — EventKit bridge for the Notes tab
@@ -144,12 +147,27 @@ final class ReminderStore: ObservableObject {
             return
         }
 
-        let predicate = eventStore.predicateForReminders(in: calendars)
-        // EKReminder isn't Sendable — snapshot into value types INSIDE the
-        // fetch callback so only plain values cross back to the main actor.
-        // Checklist model: every open item, plus recently completed ones so
-        // the "done" list stays visible for the satisfaction of checking off.
-        let snapshot: [UpcomingReminder] = await withCheckedContinuation { cont in
+        upcoming = await Self.fetchSnapshot(eventStore: eventStore, listName: listName)
+    }
+
+    // EventKit invokes the fetch callback on a BACKGROUND queue. This helper
+    // is nonisolated so the closure carries no main-actor assumption —
+    // a closure formed inside the @MainActor store would trap
+    // (EXC_BAD_INSTRUCTION, dispatch_assert_queue) when EventKit calls it
+    // off-main. Only Sendable value types cross back to the actor.
+    //
+    // Checklist model: every open item, plus recently completed ones so the
+    // "done" list stays visible for the satisfaction of checking off.
+    nonisolated private static func fetchSnapshot(
+        eventStore: EKEventStore,
+        listName: String
+    ) async -> [UpcomingReminder] {
+        await withCheckedContinuation { cont in
+            // Re-resolve the calendars here — EKCalendar values can't cross
+            // actor boundaries under strict concurrency.
+            let calendars = eventStore.calendars(for: .reminder)
+                .filter { $0.title == listName }
+            let predicate = eventStore.predicateForReminders(in: calendars)
             eventStore.fetchReminders(matching: predicate) { result in
                 let all = (result ?? []).map { reminder -> UpcomingReminder in
                     let due = reminder.dueDateComponents.flatMap { Calendar.current.date(from: $0) }
@@ -167,7 +185,5 @@ final class ReminderStore: ObservableObject {
                 cont.resume(returning: open + done)
             }
         }
-
-        upcoming = snapshot
     }
 }
