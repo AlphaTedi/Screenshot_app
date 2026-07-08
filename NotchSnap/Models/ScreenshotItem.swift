@@ -25,16 +25,33 @@ struct ScreenshotItem: Identifiable {
         self.annotations = annotations
         self.savedFileURL = savedFileURL
 
-        // Pre-generate small thumbnail (max 240x160) — fast to render in gallery
-        // Uses NSImage(cgImage:size:) for correct orientation (no flip issues)
-        let maxW: CGFloat = 240
-        let maxH: CGFloat = 160
+        // Pre-generate a REAL downsampled thumbnail (max 320px long edge).
+        // NSImage(cgImage:size:) only changes the logical size — it still
+        // wraps the full-resolution bitmap, so every tile render decoded a
+        // potentially 6000px capture. Drawing into a small CGContext once
+        // produces an actually-small bitmap for the gallery.
         let w = CGFloat(originalImage.width)
         let h = CGFloat(originalImage.height)
-        let scale = min(maxW / w, maxH / h, 1.0)
-        let thumbW = w * scale
-        let thumbH = h * scale
-        self.cachedThumbnail = NSImage(cgImage: originalImage, size: NSSize(width: thumbW, height: thumbH))
+        let scale = min(320 / max(w, h), 1.0)
+        let tw = max(1, Int(w * scale))
+        let th = max(1, Int(h * scale))
+        if scale < 1.0,
+           let ctx = CGContext(
+               data: nil, width: tw, height: th,
+               bitsPerComponent: 8, bytesPerRow: 0,
+               space: CGColorSpaceCreateDeviceRGB(),
+               bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+           ) {
+            ctx.interpolationQuality = .medium
+            ctx.draw(originalImage, in: CGRect(x: 0, y: 0, width: tw, height: th))
+            if let small = ctx.makeImage() {
+                self.cachedThumbnail = NSImage(cgImage: small, size: NSSize(width: tw, height: th))
+            } else {
+                self.cachedThumbnail = NSImage(cgImage: originalImage, size: NSSize(width: tw, height: th))
+            }
+        } else {
+            self.cachedThumbnail = NSImage(cgImage: originalImage, size: NSSize(width: w, height: h))
+        }
     }
 
     var hasSavedFile: Bool { savedFileURL != nil }

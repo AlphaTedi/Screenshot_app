@@ -187,21 +187,32 @@ struct NotchExpandedView: View {
     // MARK: - Filter bar
 
     private var filterBar: some View {
+        // PF-9 root cause: chips and the Clear control shared one unbounded
+        // HStack, so once enough category chips existed the Clear chip was
+        // pushed past the notch edge. The chips now live in their own
+        // horizontal ScrollView while Clear is pinned OUTSIDE the scrollable
+        // area — reachable at any item/chip count.
         HStack(spacing: 8) {
-            ForEach([NotchContentFilter.all] + availableFilters) { f in
-                FilterChip(filter: f, isActive: filter == f) {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                        filter = f
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach([NotchContentFilter.all] + availableFilters) { f in
+                        FilterChip(filter: f, isActive: filter == f) {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                                filter = f
+                            }
+                        }
                     }
                 }
             }
-            Spacer()
+
+            Spacer(minLength: 8)
 
             // "Clean up the tray" — clears everything unpinned.
             if !shelf.items.isEmpty && (filter == .all || filter == .tray) {
                 ClearTrayChip {
                     ShelfStore.shared.clearUnpinned()
                 }
+                .fixedSize()
             }
         }
         .padding(.horizontal, 16)
@@ -307,6 +318,25 @@ struct NotchExpandedView: View {
         // Bouncier spring for the tray so drops visibly "land"
         .animation(.spring(response: 0.42, dampingFraction: 0.6), value: shelf.items.count)
         .animation(.spring(response: 0.3, dampingFraction: 0.85), value: filter)
+        // PF-10: bulk-clear must never depend on one button's layout —
+        // right-clicking anywhere in the gallery always offers it.
+        .contextMenu {
+            if !shelf.items.isEmpty {
+                Button(L10n.t("menu.clearTray")) { ShelfStore.shared.clearUnpinned() }
+            }
+            if !appState.screenshots.isEmpty {
+                Button(L10n.t("menu.clearShots"), role: .destructive) {
+                    appState.clearSession()
+                }
+            }
+            if !appState.clipboardItems.isEmpty {
+                Button(L10n.t("menu.clearHistory"), role: .destructive) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                        appState.clipboardItems.removeAll()
+                    }
+                }
+            }
+        }
         .clipShape(
             UnevenRoundedRectangle(
                 topLeadingRadius: 0,

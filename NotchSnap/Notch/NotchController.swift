@@ -642,21 +642,18 @@ class NotchController: ObservableObject {
     // MARK: - Trigger Zone
 
     private func isInTriggerZone(_ point: NSPoint, screen: NSScreen) -> Bool {
+        // PF-12/PF-13: tight containment against the SAME rect used to
+        // render the collapsed notch, with a deliberate 8px side buffer —
+        // no broad proximity band. The hit zone and the visual zone can't
+        // drift apart because they share one geometry source.
         let notchRect = calculateNotchRect(screen: screen)
-
-        let menuBarHeight = screen.safeAreaInsets.top > 0
-            ? screen.safeAreaInsets.top
-            : NSStatusBar.system.thickness
-        let triggerYMin = screen.frame.maxY - menuBarHeight
-        let triggerYMax = screen.frame.maxY
-
-        let triggerXMin = notchRect.minX - 20
-        let triggerXMax = notchRect.maxX + 20
-
-        return point.x >= triggerXMin
-            && point.x <= triggerXMax
-            && point.y >= triggerYMin
-            && point.y <= triggerYMax
+        let zone = NSRect(
+            x: notchRect.minX - 8,
+            y: notchRect.minY,
+            width: notchRect.width + 16,
+            height: notchRect.height + (screen.frame.maxY - notchRect.maxY)
+        )
+        return zone.contains(point)
     }
 
     // MARK: - Auto-Collapse Timer
@@ -677,8 +674,13 @@ class NotchController: ObservableObject {
     // MARK: - Geometry Calculations
 
     private func calculateNotchSize(screen: NSScreen) -> CGSize {
+        // Clamp to a sane menu-bar range: frame-vs-visibleFrame math can
+        // report wildly large values around Space/display transitions, which
+        // silently inflated the notch height AND its hover zone (the
+        // "triggers from 100px away" bug).
         let computedMenuBarHeight = screen.frame.maxY - screen.visibleFrame.maxY
-        let menuBarHeight = computedMenuBarHeight > 10 ? computedMenuBarHeight : NSStatusBar.system.thickness
+        let raw = computedMenuBarHeight > 10 ? computedMenuBarHeight : NSStatusBar.system.thickness
+        let menuBarHeight = min(raw, 44)
         print("[NotchController] menuBarHeight=\(menuBarHeight), NSStatusBar=\(NSStatusBar.system.thickness), computed=\(computedMenuBarHeight)")
 
         if screen.safeAreaInsets.top > 0 {

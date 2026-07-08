@@ -70,22 +70,20 @@ class DraggableImageView: NSView, NSDraggingSource, NSPasteboardItemDataProvider
         let pbItem = NSPasteboardItem()
 
         // File URL from pre-written temp file (INSTANT — already on disk)
-        let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("NotchSnap", isDirectory: true)
-        let tempURL = tempDir.appendingPathComponent("\(item.id.uuidString).png")
+        let tempURL = TempFileManager.dragFileURL(for: item.id)
 
         if FileManager.default.fileExists(atPath: tempURL.path) {
             // File already exists — use it directly
             pbItem.setString(tempURL.absoluteString, forType: .fileURL)
 
-            // Also provide PNG data from the file (fast — just read bytes)
+            // Also provide image data from the file (fast — just read bytes)
             if let data = try? Data(contentsOf: tempURL) {
-                pbItem.setData(data, forType: .init(UTType.png.identifier))
+                pbItem.setData(data, forType: .init(UTType.jpeg.identifier))
             }
         } else {
             // Fallback: file not yet written — register lazy provider
             pbItem.setDataProvider(self, forTypes: [
-                .init(UTType.png.identifier),
+                .init(UTType.jpeg.identifier),
                 .tiff,
                 .fileURL
             ])
@@ -126,11 +124,11 @@ class DraggableImageView: NSView, NSDraggingSource, NSPasteboardItemDataProvider
         let image = screenshotItem.flattenedImage
 
         switch type {
-        case .init(UTType.png.identifier):
+        case .init(UTType.jpeg.identifier):
             if let tiff = image.tiffRepresentation,
                let bitmap = NSBitmapImageRep(data: tiff),
-               let pngData = bitmap.representation(using: .png, properties: [:]) {
-                item.setData(pngData, forType: type)
+               let jpegData = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) {
+                item.setData(jpegData, forType: type)
             }
 
         case .tiff:
@@ -139,14 +137,12 @@ class DraggableImageView: NSView, NSDraggingSource, NSPasteboardItemDataProvider
             }
 
         case .fileURL:
-            let tempDir = FileManager.default.temporaryDirectory
-                .appendingPathComponent("NotchSnap", isDirectory: true)
-            try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
-            let url = tempDir.appendingPathComponent("\(screenshotItem.id.uuidString).png")
+            let url = TempFileManager.dragFileURL(for: screenshotItem.id)
+            try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             if let tiff = image.tiffRepresentation,
                let bitmap = NSBitmapImageRep(data: tiff),
-               let pngData = bitmap.representation(using: .png, properties: [:]) {
-                try? pngData.write(to: url, options: .atomic)
+               let jpegData = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) {
+                try? jpegData.write(to: url, options: .atomic)
                 item.setString(url.absoluteString, forType: .fileURL)
             }
 

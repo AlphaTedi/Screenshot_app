@@ -131,15 +131,17 @@ final class ShelfStore: ObservableObject {
         let itemDir = Self.shelfDirectory.appendingPathComponent(id.uuidString, isDirectory: true)
         let formatter = DateFormatter()
         formatter.dateFormat = "HH.mm.ss"
-        let name = "Screenshot \(formatter.string(from: screenshot.capturedAt)).png"
+        let name = "Screenshot \(formatter.string(from: screenshot.capturedAt)).jpg"
         let dest = itemDir.appendingPathComponent(name)
 
+        // PF-1: JPEG 85% — screen content compresses 70-85% smaller than PNG
+        // with no visible loss at normal viewing sizes.
         guard let tiff = screenshot.flattenedImage.tiffRepresentation,
               let rep = NSBitmapImageRep(data: tiff),
-              let png = rep.representation(using: .png, properties: [:]) else { return nil }
+              let jpeg = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else { return nil }
         do {
             try FileManager.default.createDirectory(at: itemDir, withIntermediateDirectories: true)
-            try png.write(to: dest)
+            try jpeg.write(to: dest)
         } catch {
             print("[Shelf] screenshot write failed: \(error)")
             return nil
@@ -215,7 +217,8 @@ final class ShelfStore: ObservableObject {
     }
 
     private func deletePayload(_ item: ShelfItem) {
-        guard item.payloadPath != nil else { return }
+        guard let path = item.payloadPath else { return }
+        ThumbnailCache.evict(fileAt: URL(fileURLWithPath: path))
         let itemDir = Self.shelfDirectory.appendingPathComponent(item.id.uuidString, isDirectory: true)
         try? FileManager.default.removeItem(at: itemDir)
     }

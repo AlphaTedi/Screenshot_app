@@ -1,6 +1,45 @@
 import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
+import ImageIO
+
+// MARK: - ThumbnailCache — PF-2/PF-7
+//
+// Decoding a payload file at full resolution for a 96pt card was a large
+// per-render cost. CGImageSourceCreateThumbnailAtIndex decodes AT thumbnail
+// size (never inflating the full bitmap into memory), and NSCache keeps
+// decoded thumbnails around so scrolling back never re-reads the disk.
+
+@MainActor
+enum ThumbnailCache {
+    private static let cache: NSCache<NSString, NSImage> = {
+        let c = NSCache<NSString, NSImage>()
+        c.countLimit = 64
+        return c
+    }()
+
+    static func thumbnail(forFileAt url: URL, maxPixel: CGFloat = 320) -> NSImage? {
+        let key = url.path as NSString
+        if let hit = cache.object(forKey: key) { return hit }
+
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+        let options: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
+            return nil
+        }
+        let image = NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
+        cache.setObject(image, forKey: key)
+        return image
+    }
+
+    static func evict(fileAt url: URL) {
+        cache.removeObject(forKey: url.path as NSString)
+    }
+}
 
 // MARK: - File Tray (in-notch shelf)
 //
@@ -225,7 +264,8 @@ private final class TrayDragNSView: NSView, NSDraggingSource {
         guard let item else { thumbnail = nil; return }
         if let url = item.payloadURL,
            item.type == .image || item.type == .screenshot,
-           let img = NSImage(contentsOf: url) {
+           let img = ThumbnailCache.thumbnail(forFileAt: url) {
+            // Decoded at thumbnail size + NSCache — never the full bitmap.
             thumbnail = img
         } else if let url = item.payloadURL {
             thumbnail = NSWorkspace.shared.icon(forFile: url.path)

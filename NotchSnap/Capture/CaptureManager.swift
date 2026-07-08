@@ -101,6 +101,27 @@ class CaptureManager: ObservableObject {
         }
     }
 
+    /// PF-3/PF-4: downscale captures whose longest edge exceeds ~2500px.
+    /// Set the hidden default `keepLosslessCaptures` to true to keep
+    /// pixel-perfect originals (at the documented memory/storage cost).
+    static func downscaledIfNeeded(_ image: CGImage, maxEdge: CGFloat = 2500) -> CGImage {
+        guard !UserDefaults.standard.bool(forKey: "keepLosslessCaptures") else { return image }
+        let w = CGFloat(image.width), h = CGFloat(image.height)
+        let longest = max(w, h)
+        guard longest > maxEdge else { return image }
+        let scale = maxEdge / longest
+        let tw = Int(w * scale), th = Int(h * scale)
+        guard let ctx = CGContext(
+            data: nil, width: tw, height: th,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: image.colorSpace ?? CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return image }
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: tw, height: th))
+        return ctx.makeImage() ?? image
+    }
+
     /// Radius for the rounded-corner output option: proportional to the
     /// capture (in pixels, so Retina scale is handled), clamped so tiny
     /// crops don't become pills and huge grabs don't look barely-rounded.
@@ -157,6 +178,11 @@ class CaptureManager: ObservableObject {
             case .fullscreen:
                 image = try await captureFullscreen()
             }
+
+            // PF-3: cap stored resolution. Nobody views a 6000px capture
+            // inside a notch panel; full-res costs ~150MB RAM each and
+            // multi-MB files. Hidden escape hatch: `keepLosslessCaptures`.
+            image = Self.downscaledIfNeeded(image)
 
             // Optional rounded corners for area captures (toolbar toggle).
             if mode == .area, UserDefaults.standard.bool(forKey: "captureRoundedCorners") {
@@ -286,6 +312,9 @@ class CaptureManager: ObservableObject {
                 let scale = CGFloat(rawImage.width) / max(rect.width, 1)
                 rawImage = ImageRoundedCornerMask.apply(to: rawImage, cornerRadius: 10 * scale) ?? rawImage
             }
+
+            // PF-3: same resolution ceiling as the quick-capture path.
+            rawImage = Self.downscaledIfNeeded(rawImage)
 
             // Optional rounded corners (toolbar toggle) — window snaps already
             // carry the window's own radius, so don't double-round those.
