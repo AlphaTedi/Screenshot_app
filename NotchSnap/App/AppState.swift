@@ -54,10 +54,16 @@ class AppState: ObservableObject {
     /// scrolls internally instead of pushing the panel off-screen.
     var notchExtraHeight: CGFloat {
         var extra: CGFloat = showsNotchFilterBar ? 34 : 0
-        if activeNotchFilter == .notes {
+        switch activeNotchFilter {
+        case .todos:
+            // Grows with the list, capped at 8 rows (VW-3); beyond that
+            // the list scrolls internally.
             let rows = CGFloat(TodoStore.shared.visibleRowCount)
-            let listHeight = min(rows, 8) * 30      // cap at 8 rows (VW-3)
-            extra += 96 + listHeight
+            extra += 60 + min(rows, 8) * 30
+        case .notes:
+            extra += 44   // composer layout, stable height — no jumping
+        default:
+            break
         }
         return extra
     }

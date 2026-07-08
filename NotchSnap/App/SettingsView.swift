@@ -844,6 +844,10 @@ struct ShortcutsSettingsView: View {
             }
 
             SettingsSection_Card(title: "Notch") {
+                ShortcutRow(label: "Open To-dos", keys: "\u{2303}\u{21E7}T")
+                Divider()
+                ShortcutRow(label: "New to-do (quick entry)", keys: "\u{2325}Space")
+                Divider()
                 ShortcutRow(label: "Open Notes", keys: "\u{2303}\u{21E7}N")
                 Divider()
                 ShortcutRow(label: "Open file Tray", keys: "\u{2303}\u{21E7}F")

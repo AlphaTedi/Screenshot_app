@@ -12,18 +12,34 @@ import AppKit
 //   • Tabs (not combo boxes) switch collections while browsing. Combo boxes
 //     belong to the creation flow only.
 
+// MARK: - TodoTabView — the To-do tab (own tab, own shortcut ⌃⇧T)
+
+struct TodoTabView: View {
+    var body: some View {
+        TodoBrowsingView()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(TodoBrowsingKeyHandler())
+    }
+}
+
 struct TodoBrowsingView: View {
     @ObservedObject private var store = TodoStore.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             collectionTabs
-            Divider().opacity(0.25)
+            hairline
             todoList
-            Divider().opacity(0.25)
+            hairline
             completedSection
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var hairline: some View {
+        Rectangle().fill(Color.white.opacity(0.09)).frame(height: 0.5)
     }
 
     // MARK: - Collection tabs (TD-9)
@@ -82,7 +98,7 @@ struct TodoBrowsingView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 2) {
+                    LazyVStack(alignment: .leading, spacing: 4) {
                         ForEach(rows) { item in
                             TodoRow(
                                 item: item,
@@ -154,16 +170,16 @@ private struct CollectionTab: View {
                 .font(.system(size: 11, weight: isActive ? .semibold : .medium))
                 // Colour reads as an ACTIVE-STATE signal, never a permanent
                 // badge: inactive tabs stay neutral whatever colour they own.
-                .foregroundStyle(isActive ? Color.black.opacity(0.85)
-                                          : Color.white.opacity(hover ? 0.8 : 0.45))
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
+                .foregroundStyle(isActive ? Color.black.opacity(0.93)
+                                          : Color.white.opacity(hover ? 0.75 : 0.53))
+                .padding(.horizontal, 11)
+                .padding(.vertical, 5)
                 .background(
-                    Capsule(style: .continuous)
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(isActive ? collection.color
-                                       : Color.white.opacity(hover ? 0.10 : 0.0))
+                                       : Color.white.opacity(hover ? 0.08 : 0.0))
                 )
-                .contentShape(Capsule())
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
@@ -187,7 +203,7 @@ private struct TodoRow: View {
     @State private var hover = false
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 10) {
             Button {
                 TodoStore.shared.toggleComplete(item.id)
             } label: {
@@ -211,7 +227,7 @@ private struct TodoRow: View {
             .animation(.spring(response: 0.28, dampingFraction: 0.6), value: item.isCompleted)
 
             Text(item.title)
-                .font(.system(size: 12))
+                .font(.system(size: 13))
                 .strikethrough(item.isCompleted)
                 .foregroundStyle(.white.opacity(item.isCompleted ? 0.35 : 0.9))
                 .lineLimit(1)

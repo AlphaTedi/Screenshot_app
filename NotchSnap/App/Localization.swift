@@ -93,6 +93,7 @@ enum L10n {
         "snippet.cancel": "Cancel",
         // Notes
         "filter.notes": "Notes",
+        "filter.todos": "To-dos",
         "notes.placeholder": "Jot something down\u{2026}",
         "notes.makeReminder": "Make reminder",
         "notes.saveNote": "Save note (\u{2318}\u{21A9})",
@@ -167,6 +168,7 @@ enum L10n {
         "snippet.saveButton": "Salva",
         "snippet.cancel": "Annulla",
         "filter.notes": "Note",
+        "filter.todos": "To-do",
         "notes.placeholder": "Scrivi qualcosa\u{2026}",
         "notes.makeReminder": "Crea promemoria",
         "notes.saveNote": "Salva nota (\u{2318}\u{21A9})",

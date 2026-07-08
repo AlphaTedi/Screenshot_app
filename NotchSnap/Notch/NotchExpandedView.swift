@@ -7,8 +7,9 @@ import SwiftUI
 extension AppState {
     var notchAvailableFilters: [NotchContentFilter] {
         var result: [NotchContentFilter] = []
-        // Tray and Notes are always offered — they're tools, not content.
+        // Tray, To-dos and Notes are always offered — tools, not content.
         result.append(.tray)
+        result.append(.todos)
         result.append(.notes)
         if !screenshots.isEmpty
             || clipboardItems.contains(where: { $0.type == .screenshot || $0.type == .image }) {
@@ -35,7 +36,7 @@ extension AppState {
 }
 
 enum NotchContentFilter: String, CaseIterable, Identifiable {
-    case all, tray, screenshots, snippets, links, text, notes
+    case all, tray, screenshots, snippets, links, text, notes, todos
     var id: String { rawValue }
 
     var label: String {
@@ -47,6 +48,7 @@ enum NotchContentFilter: String, CaseIterable, Identifiable {
         case .links:       return L10n.t("filter.links")
         case .text:        return L10n.t("filter.text")
         case .notes:       return L10n.t("filter.notes")
+        case .todos:       return L10n.t("filter.todos")
         }
     }
 
@@ -59,6 +61,7 @@ enum NotchContentFilter: String, CaseIterable, Identifiable {
         case .links:       return "link"
         case .text:        return "text.alignleft"
         case .notes:       return "note.text"
+        case .todos:       return "checkmark.square"
         }
     }
 }
@@ -101,7 +104,7 @@ struct NotchExpandedView: View {
             return appState.clipboardItems.filter {
                 $0.type != .url && $0.type != .screenshot && $0.type != .image
             }
-        case .tray, .snippets, .notes:
+        case .tray, .snippets, .notes, .todos:
             return []
         }
     }
@@ -119,7 +122,9 @@ struct NotchExpandedView: View {
             if showsFilterBar {
                 filterBar
             }
-            if filter == .notes {
+            if filter == .todos {
+                TodoTabView()
+            } else if filter == .notes {
                 NotesTabView()
             } else if filter == .tray && shelf.items.isEmpty {
                 TrayEmptyState()
@@ -194,7 +199,7 @@ struct NotchExpandedView: View {
         // area — reachable at any item/chip count.
         HStack(spacing: 8) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
+                HStack(spacing: 14) {
                     ForEach([NotchContentFilter.all] + availableFilters) { f in
                         FilterChip(filter: f, isActive: filter == f) {
                             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
@@ -217,6 +222,13 @@ struct NotchExpandedView: View {
         }
         .padding(.horizontal, 16)
         .padding(.top, 12)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.white.opacity(0.08))
+                .frame(height: 0.5)
+                .padding(.horizontal, 16)
+                .offset(y: 4)
+        }
     }
 
     // MARK: - Empty State
@@ -389,25 +401,23 @@ private struct FilterChip: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 4) {
-                Image(systemName: filter.icon)
-                    .font(.system(size: 9, weight: .semibold))
-                Text(filter.label)
-                    .font(.system(size: 10, weight: isActive ? .semibold : .medium))
-            }
-            .foregroundStyle(isActive ? Color.black : Color.white.opacity(hover ? 0.9 : 0.6))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(isActive ? Color.white.opacity(0.9)
-                          : Color.white.opacity(hover ? 0.14 : 0.08))
-            )
-            .contentShape(Capsule())
+            // Design system: quiet text tabs — active is near-white with an
+            // underline, inactive muted gray. No pill fills, no icons.
+            Text(filter.label)
+                .font(.system(size: 11, weight: isActive ? .semibold : .medium))
+                .foregroundStyle(isActive ? Color.white.opacity(0.93)
+                                          : Color.white.opacity(hover ? 0.75 : 0.47))
+                .padding(.vertical, 5)
+                .overlay(alignment: .bottom) {
+                    Rectangle()
+                        .fill(isActive ? Color.white.opacity(0.93) : .clear)
+                        .frame(height: 1.5)
+                }
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
-        .animation(.easeOut(duration: 0.12), value: hover)
+        .animation(.spring(response: 0.28, dampingFraction: 0.85), value: isActive)
     }
 }
 
