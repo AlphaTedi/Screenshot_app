@@ -39,6 +39,7 @@ class HotkeyManager {
         case repeatLast = 5       // ⌃⇧Space
         case openNotes = 6        // ⌃⇧N — expand notch on the Notes tab
         case openTray = 7         // ⌃⇧F — expand notch on the file Tray
+        case quickEntry = 8       // ⌥Space — global to-do quick entry (KB-1)
     }
 
     func start() {
@@ -73,6 +74,8 @@ class HotkeyManager {
         registerHotKey(id: .repeatLast, keyCode: UInt32(kVK_Space), modifiers: ctrlShift)
         registerHotKey(id: .openNotes, keyCode: UInt32(kVK_ANSI_N), modifiers: ctrlShift)
         registerHotKey(id: .openTray, keyCode: UInt32(kVK_ANSI_F), modifiers: ctrlShift)
+        // KB-1: global quick entry, independent of whether the notch is open.
+        registerHotKey(id: .quickEntry, keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey))
 
         print("[HotkeyManager] Carbon hot keys registered. No Accessibility permission needed.")
     }
@@ -150,6 +153,12 @@ class HotkeyManager {
             Task { @MainActor in
                 AppState.shared.pendingNotchFilter = .tray
                 NotchController.shared.triggerExpand()
+            }
+
+        case .quickEntry:
+            print("[HotkeyManager] ⌥Space → To-do quick entry")
+            Task { @MainActor in
+                TodoQuickEntryController.shared.toggle()
             }
         }
     }

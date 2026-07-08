@@ -709,23 +709,19 @@ class NotchController: ObservableObject {
     /// The expanded shape can be taller than the base size (filter bar,
     /// Notes tab). The hover/collapse geometry MUST match, or the lower
     /// part of the UI counts as "outside" and hovering it closes the notch.
+    /// Same single source the shape uses — hover/collapse geometry can never
+    /// drift from what's rendered.
     private var currentExtraExpandedHeight: CGFloat {
-        (AppState.shared.showsNotchFilterBar ? 34 : 0)
-            + (AppState.shared.activeNotchFilter == .notes ? 44 : 0)
-    }
-
-    private var currentExtraExpandedWidth: CGFloat {
-        AppState.shared.activeNotchFilter == .notes ? 140 : 0
+        AppState.shared.notchExtraHeight
     }
 
     private func expandedPanelRect(screen: NSScreen) -> NSRect {
         let notchRect = calculateNotchRect(screen: screen)
         let height = expandedSize.height + currentExtraExpandedHeight
-        let width = expandedSize.width + currentExtraExpandedWidth
         return NSRect(
-            x: notchRect.midX - width / 2,
+            x: notchRect.midX - expandedSize.width / 2,
             y: notchRect.maxY - height,
-            width: width,
+            width: expandedSize.width,
             height: height
         )
     }
@@ -743,14 +739,13 @@ class NotchController: ObservableObject {
 
     private func calculateMaxPanelFrame(screen: NSScreen) -> NSRect {
         let notchRect = calculateNotchRect(screen: screen)
-        // +90/+160 headroom so the shape can grow for the filter bar and
-        // the wider Notes tab without being cut off by the panel bounds.
-        let height = expandedSize.height + 90
-        let width = expandedSize.width + 160
+        // VW-1: fixed width. Height headroom covers the tallest tab (Notes
+        // with a full to-do list) so the shape can grow without clipping.
+        let height = expandedSize.height + 380
         return NSRect(
-            x: notchRect.midX - width / 2,
+            x: notchRect.midX - expandedSize.width / 2,
             y: screen.frame.maxY - height,
-            width: width,
+            width: expandedSize.width,
             height: height
         )
     }

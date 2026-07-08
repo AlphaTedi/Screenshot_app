@@ -49,6 +49,19 @@ class AppState: ObservableObject {
     /// for tabs that need more room (e.g. Notes).
     @Published var activeNotchFilter: NotchContentFilter = .all
 
+    /// VW-2/VW-3: extra HEIGHT (never width) for the expanded panel.
+    /// The Notes tab grows with its to-do row count, capped so a long list
+    /// scrolls internally instead of pushing the panel off-screen.
+    var notchExtraHeight: CGFloat {
+        var extra: CGFloat = showsNotchFilterBar ? 34 : 0
+        if activeNotchFilter == .notes {
+            let rows = CGFloat(TodoStore.shared.visibleRowCount)
+            let listHeight = min(rows, 8) * 30      // cap at 8 rows (VW-3)
+            extra += 96 + listHeight
+        }
+        return extra
+    }
+
     /// One-shot request to focus the Notes composer (set by the ⌃⇧N hotkey
     /// so the user can type immediately). Consumed by NotesTabView.
     @Published var focusNotesComposer = false

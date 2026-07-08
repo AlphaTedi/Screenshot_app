@@ -88,11 +88,10 @@ struct NotchShapeView: View {
     @Binding var state: NotchState
     let notchSize: CGSize
     let expandedSize: CGSize
-    /// Extra height added in the expanded state (e.g. to make room for the
-    /// filter-chip bar) so the gallery never gets cramped or clipped.
+    /// VW-1: the expanded panel has ONE fixed width across every tab.
+    /// Height is the only dimension that varies (VW-2) — a to-do list with
+    /// eight rows is taller than one with two, but never wider.
     var extraExpandedHeight: CGFloat = 0
-    /// Extra width in the expanded state (e.g. the Notes tab breathes wider).
-    var extraExpandedWidth: CGFloat = 0
     let hasPhysicalNotch: Bool
     var screenshotJustArrived: Bool = false
     var contentVisible: Bool = false
@@ -122,7 +121,7 @@ struct NotchShapeView: View {
             switch state {
             case .idle:                 return notchSize.width + currentFilletRadius * 2
             case .hovering:             return notchSize.width + 28 + currentFilletRadius * 2
-            case .expanded:             return expandedSize.width + extraExpandedWidth
+            case .expanded:             return expandedSize.width
             case .captureNotification:  return notificationWide ? 320 : notchSize.width + 80 + currentFilletRadius * 2
             }
         }()
@@ -212,9 +211,8 @@ struct NotchShapeView: View {
             .scaleEffect(x: squishScaleX, y: squishScaleY, anchor: .top)
             .animation(shapeAnimation, value: state)
             .animation(NotchAnimation.bounce, value: screenshotJustArrived)
-            // Size changes when the filter bar / Notes tab (dis)appear mid-session
+            // VW-2: height animates with the shared spring on every change
             .animation(NotchAnimation.expand, value: extraExpandedHeight)
-            .animation(NotchAnimation.expand, value: extraExpandedWidth)
             .onChange(of: state) { newState in
                 if !reduceMotion {
                     runSquishAnimation(for: newState)
@@ -229,7 +227,7 @@ struct NotchShapeView: View {
             // they had been "cut").
             if state == .expanded {
                 content
-                    .frame(width: expandedSize.width + extraExpandedWidth - 32,
+                    .frame(width: expandedSize.width - 32,
                            height: expandedSize.height + extraExpandedHeight - notchSize.height - 8)
                     .padding(.top, notchSize.height + 4)
                     .opacity(contentVisible ? 1.0 : 0.0)

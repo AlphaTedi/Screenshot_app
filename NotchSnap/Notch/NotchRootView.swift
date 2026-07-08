@@ -11,11 +11,9 @@ struct NotchRootView: View {
             state: $controller.state,
             notchSize: controller.notchSize,
             expandedSize: controller.expandedSize,
-            // Grow for the filter-chip bar, and further for the Notes tab
-            // (composer + lists need more vertical room than tiles).
-            extraExpandedHeight: (appState.showsNotchFilterBar ? 34 : 0)
-                + (appState.activeNotchFilter == .notes ? 44 : 0),
-            extraExpandedWidth: appState.activeNotchFilter == .notes ? 140 : 0,
+            // VW-1/VW-2: width fixed, height varies by tab AND by how much
+            // content the tab is showing.
+            extraExpandedHeight: appState.notchExtraHeight,
             hasPhysicalNotch: controller.hasPhysicalNotch,
             screenshotJustArrived: controller.screenshotJustArrived,
             contentVisible: controller.contentVisible,

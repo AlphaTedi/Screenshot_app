@@ -22,15 +22,27 @@ struct NotesTabView: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            composer
-                .frame(maxWidth: .infinity)
+        // The to-do list is the more developed half of the tab now; the
+        // quick-note composer from the Notes PRD stays beneath it.
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                TodoBrowsingView()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
-            rightColumn
-                .frame(width: 280)
+            Divider().opacity(0.2)
+
+            HStack(alignment: .top, spacing: 12) {
+                composer
+                    .frame(maxWidth: .infinity)
+                rightColumn
+                    .frame(width: 200)
+            }
+            .frame(height: 108)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+        .background(TodoBrowsingKeyHandler())
         .task {
             if reminders.access == .granted {
                 await reminders.refresh()
