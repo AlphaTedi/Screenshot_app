@@ -64,4 +64,17 @@ enum NotchAnimation {
 
     // NOTIFICATION CONTRACT: fast, decisive, no bounce
     static let notificationContract = Animation.spring(response: 0.30, dampingFraction: 0.82)
+
+    // MARK: - To-do hugging panel (PRD §8)
+
+    // CONTENT HUG: the hero spring — panel height, row enter/exit, and the
+    // Completed section all share this ONE spring so container and content
+    // visibly move together instead of racing each other (§8.3). Slightly
+    // underdamped on purpose: the panel should feel alive, not utilitarian.
+    static let contentHug = Animation.spring(response: 0.45, dampingFraction: 0.60)
+
+    // HINT FADE: contextual shortcut hints and ⌘-held badges (§7.1/7.2).
+    // Deliberately a different weight of motion from contentHug — quick and
+    // light, never competing with the height/row animation (§8.4).
+    static let hintFade = Animation.spring(response: 0.18, dampingFraction: 1.0)
 }

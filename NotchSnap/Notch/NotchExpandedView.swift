@@ -6,10 +6,13 @@ import SwiftUI
 // visible so the notch shape can grow to make room for it.
 extension AppState {
     var notchAvailableFilters: [NotchContentFilter] {
+        // Pivot PRD: the notch is a to-do app. Everything else exists only
+        // when "Show legacy panels" is re-enabled from Settings.
+        guard showLegacyPanels else { return [.todos] }
         var result: [NotchContentFilter] = []
-        // Tray, To-dos and Notes are always offered — tools, not content.
-        result.append(.tray)
+        // To-dos lead — they're the product; Tray and Notes are legacy tools.
         result.append(.todos)
+        result.append(.tray)
         result.append(.notes)
         if !screenshots.isEmpty
             || clipboardItems.contains(where: { $0.type == .screenshot || $0.type == .image }) {
@@ -74,8 +77,10 @@ struct NotchExpandedView: View {
     @AppStorage(L10n.storageKey) private var appLanguage = "system"
     @ObservedObject private var shelf = ShelfStore.shared
     @State private var appeared = false
-    @State private var filter: NotchContentFilter = .all
+    // The app opens directly into the to-do experience (pivot PRD §11).
+    @State private var filter: NotchContentFilter = .todos
     @State private var shelfDropTargeted = false
+    @AppStorage("showLegacyPanels") private var showLegacyPanels = false
 
     private var hasContent: Bool {
         !appState.screenshots.isEmpty || !appState.clipboardItems.isEmpty
@@ -138,6 +143,9 @@ struct NotchExpandedView: View {
         // The expanded notch is the tray's drop target: files, images, text
         // and links dragged here fall into the Tray section.
         .onDrop(of: ShelfDropHandler.acceptedTypes, isTargeted: $shelfDropTargeted) { providers in
+            // The Tray is a legacy panel — don't swallow drops into UI the
+            // user can't see.
+            guard showLegacyPanels else { return false }
             let handled = ShelfDropHandler.handle(providers: providers)
             if handled {
                 // Stay on the Tray so the user sees the item fall in.
@@ -174,15 +182,20 @@ struct NotchExpandedView: View {
             appState.activeNotchFilter = f
         }
         .onChange(of: showsFilterBar) { shows in
-            // If content shrank to a single category, fall back to All so
-            // the user is never stuck on a hidden filter.
-            if !shows { filter = .all }
+            // With the bar gone (legacy panels hidden or content shrank to a
+            // single category), land on To-dos — the product's home view.
+            if !shows { filter = .todos }
         }
     }
 
     /// Apply a one-shot filter request (e.g. drag-to-notch opens the Tray).
     private func consumePendingFilter() {
         guard let requested = appState.pendingNotchFilter else { return }
+        // Never route to a panel that's hidden behind the legacy toggle.
+        guard requested == .todos || showLegacyPanels else {
+            appState.pendingNotchFilter = nil
+            return
+        }
         withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
             filter = requested
         }

@@ -76,7 +76,9 @@ class HotkeyManager {
         registerHotKey(id: .openNotes, keyCode: UInt32(kVK_ANSI_N), modifiers: ctrlShift)
         registerHotKey(id: .openTray, keyCode: UInt32(kVK_ANSI_F), modifiers: ctrlShift)
         // KB-1: global quick entry, independent of whether the notch is open.
-        registerHotKey(id: .quickEntry, keyCode: UInt32(kVK_Space), modifiers: UInt32(optionKey))
+        // ⌥⌘N, not ⌥Space: launcher apps (Raycast, Alfred) claim ⌥Space by
+        // default, so it silently never reached us on machines running one.
+        registerHotKey(id: .quickEntry, keyCode: UInt32(kVK_ANSI_N), modifiers: UInt32(optionKey | cmdKey))
         registerHotKey(id: .openTodos, keyCode: UInt32(kVK_ANSI_T), modifiers: ctrlShift)
 
         print("[HotkeyManager] Carbon hot keys registered. No Accessibility permission needed.")
@@ -158,9 +160,10 @@ class HotkeyManager {
             }
 
         case .quickEntry:
-            print("[HotkeyManager] ⌥Space → To-do quick entry")
+            print("[HotkeyManager] ⌥⌘N → notch creation tab")
             Task { @MainActor in
-                TodoQuickEntryController.shared.toggle()
+                // Design PRD §3: one creation surface — the panel's "+" tab.
+                NotchController.shared.toggleCreate()
             }
 
         case .openTodos:

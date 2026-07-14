@@ -21,13 +21,20 @@ enum TodoUrgency: String, Codable, CaseIterable, Identifiable {
         }
     }
 
+    /// UG-4: the full concept, stated in words — "Medium priority", never a
+    /// bare "Medium". Used everywhere urgency is the subject (creation combo,
+    /// its options, the dot tooltip).
+    var fullLabel: String {
+        L10n.t("urgency.\(rawValue).full")
+    }
+
     /// TD-7: secondary to the collection colour — a small dot, never an accent
-    /// competing with the collection's identity.
+    /// competing with the collection's identity. Values from DesignSystem.
     var color: Color {
         switch self {
-        case .low:    return Color(red: 0.60, green: 0.85, blue: 0.55)
-        case .medium: return Color(red: 1.00, green: 0.75, blue: 0.30)
-        case .high:   return Color(red: 1.00, green: 0.35, blue: 0.35)
+        case .low:    return DSColor.urgencyLow
+        case .medium: return DSColor.urgencyMedium
+        case .high:   return DSColor.urgencyHigh
         }
     }
 
@@ -56,6 +63,14 @@ struct TodoCollection: Identifiable, Codable, Equatable {
     }
 }
 
+/// NC-3: a step inside a to-do's checklist — a sub-detail, never a peer of
+/// top-level to-dos (no urgency, no collection, no completion timestamp).
+struct ChecklistItem: Identifiable, Codable, Equatable {
+    let id: UUID
+    var title: String
+    var isDone: Bool = false
+}
+
 struct TodoItem: Identifiable, Codable, Equatable {
     let id: UUID
     var title: String
@@ -66,4 +81,44 @@ struct TodoItem: Identifiable, Codable, Equatable {
     var dueDate: Date?
     var sortOrder: Int
     let createdAt: Date
+    /// NC-1: freeform note, shown only in the row's expanded state.
+    var note: String = ""
+    /// NC-3: sub-steps, shown only in the expanded state.
+    var checklist: [ChecklistItem] = []
+
+    var hasDetails: Bool { !note.isEmpty || !checklist.isEmpty }
+
+    init(id: UUID, title: String, collectionID: UUID, urgency: TodoUrgency,
+         isCompleted: Bool, completedAt: Date?, dueDate: Date?,
+         sortOrder: Int, createdAt: Date,
+         note: String = "", checklist: [ChecklistItem] = []) {
+        self.id = id
+        self.title = title
+        self.collectionID = collectionID
+        self.urgency = urgency
+        self.isCompleted = isCompleted
+        self.completedAt = completedAt
+        self.dueDate = dueDate
+        self.sortOrder = sortOrder
+        self.createdAt = createdAt
+        self.note = note
+        self.checklist = checklist
+    }
+
+    // Hand-rolled decode so pre-note/checklist todos.json files (which lack
+    // the new keys) keep loading — synthesized Codable would throw on them.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        collectionID = try c.decode(UUID.self, forKey: .collectionID)
+        urgency = try c.decodeIfPresent(TodoUrgency.self, forKey: .urgency) ?? .low
+        isCompleted = try c.decodeIfPresent(Bool.self, forKey: .isCompleted) ?? false
+        completedAt = try c.decodeIfPresent(Date.self, forKey: .completedAt)
+        dueDate = try c.decodeIfPresent(Date.self, forKey: .dueDate)
+        sortOrder = try c.decode(Int.self, forKey: .sortOrder)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        note = try c.decodeIfPresent(String.self, forKey: .note) ?? ""
+        checklist = try c.decodeIfPresent([ChecklistItem].self, forKey: .checklist) ?? []
+    }
 }

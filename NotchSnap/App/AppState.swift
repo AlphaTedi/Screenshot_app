@@ -47,25 +47,60 @@ class AppState: ObservableObject {
 
     /// Filter currently shown in the expanded notch — lets the shape grow
     /// for tabs that need more room (e.g. Notes).
-    @Published var activeNotchFilter: NotchContentFilter = .all
+    @Published var activeNotchFilter: NotchContentFilter = .todos
 
-    /// VW-2/VW-3: extra HEIGHT (never width) for the expanded panel.
-    /// The Notes tab grows with its to-do row count, capped so a long list
-    /// scrolls internally instead of pushing the panel off-screen.
+    /// Pivot PRD: the notch is a to-do app first. The Shelf/Clipboard/Notes
+    /// panels stay in the codebase but are hidden unless re-enabled from
+    /// Settings ("Show legacy panels").
+    var showLegacyPanels: Bool {
+        UserDefaults.standard.bool(forKey: "showLegacyPanels")
+    }
+
+    /// Hugging height (pivot PRD §3): the to-do view MEASURES its natural
+    /// content height and publishes it here; the panel is a direct animated
+    /// function of this value — never a fixed container that scrolls.
+    /// Published so the notch shape re-renders the moment content changes.
+    @Published var todoContentHeight: CGFloat = 0
+
+    /// Menu-bar/notch strip height, pushed in by NotchController on setup and
+    /// screen changes — the hugging math needs it to convert "content height"
+    /// into "total shape height".
+    @Published var notchBarHeight: CGFloat = 38
+
+    /// Headroom available inside the pre-sized panel window — the hugging
+    /// height is clamped to this so the shape never outgrows its NSPanel
+    /// (NotchController sizes the window to expandedSize.height + 380).
+    static let maxExtraHeight: CGFloat = 372
+
+    /// The user's gallery height preset — the baseline `extraHeight` is
+    /// measured against. Same key as NotchController's @AppStorage.
+    private var expandedBaseHeight: CGFloat {
+        let stored = UserDefaults.standard.double(forKey: "notchExpandedHeight")
+        return stored > 0 ? CGFloat(stored) : 200
+    }
+
+    /// VW-2: extra HEIGHT (never width) for the expanded panel.
+    ///
+    /// For the to-do view this is the hugging-height core: total shape height
+    /// = notch strip + chrome + measured content, expressed relative to the
+    /// gallery baseline — so it's NEGATIVE when a short list needs less room
+    /// than the gallery preset. The shape animates every change of this value
+    /// on the shared contentHug spring.
     var notchExtraHeight: CGFloat {
-        var extra: CGFloat = showsNotchFilterBar ? 34 : 0
+        let filterBar: CGFloat = showsNotchFilterBar ? 34 : 0
         switch activeNotchFilter {
         case .todos:
-            // Grows with the list, capped at 8 rows (VW-3); beyond that
-            // the list scrolls internally.
-            let rows = CGFloat(TodoStore.shared.visibleRowCount)
-            extra += 60 + min(rows, 8) * 30
+            // notch strip + 8 (top gap) + measured panel (its own paddings
+            // and bezel margins are inside the measurement) + filter bar
+            // when legacy panels are shown.
+            let desiredTotal = notchBarHeight + 8 + todoContentHeight + filterBar
+            let cappedTotal = min(desiredTotal, expandedBaseHeight + Self.maxExtraHeight)
+            return cappedTotal - expandedBaseHeight
         case .notes:
-            extra += 44   // composer layout, stable height — no jumping
+            return filterBar + 44   // composer layout, stable height — no jumping
         default:
-            break
+            return filterBar
         }
-        return extra
     }
 
     /// One-shot request to focus the Notes composer (set by the ⌃⇧N hotkey

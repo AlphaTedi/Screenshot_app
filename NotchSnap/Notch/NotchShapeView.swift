@@ -211,8 +211,10 @@ struct NotchShapeView: View {
             .scaleEffect(x: squishScaleX, y: squishScaleY, anchor: .top)
             .animation(shapeAnimation, value: state)
             .animation(NotchAnimation.bounce, value: screenshotJustArrived)
-            // VW-2: height animates with the shared spring on every change
-            .animation(NotchAnimation.expand, value: extraExpandedHeight)
+            // Hugging height (§8.3): the silhouette grows/shrinks on the SAME
+            // spring as row enter/exit, so container and content move as one.
+            .animation(reduceMotion ? .easeInOut(duration: 0.15) : NotchAnimation.contentHug,
+                       value: extraExpandedHeight)
             .onChange(of: state) { newState in
                 if !reduceMotion {
                     runSquishAnimation(for: newState)
@@ -247,6 +249,11 @@ struct NotchShapeView: View {
                         )
                         .frame(width: currentWidth, height: currentHeight)
                     )
+                    // Content window + clip mask track the hugging silhouette
+                    // on the same spring — otherwise the mask snaps and rows
+                    // get visibly clipped mid-shrink (§8.4).
+                    .animation(reduceMotion ? .easeInOut(duration: 0.15) : NotchAnimation.contentHug,
+                               value: extraExpandedHeight)
             }
 
             // Notification content — icon in left wing, text in right wing

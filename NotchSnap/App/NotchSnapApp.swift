@@ -36,6 +36,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hotkeyManager = HotkeyManager.shared
         hotkeyManager?.start()
 
+        #if DEBUG
+        // Scriptable side door for agent/CI verification (see DebugDriver).
+        DebugDriver.install()
+        #endif
+
         // Setup Caps Lock hotkey observers
         CaptureManager.shared.setupHotkeyObservers()
 

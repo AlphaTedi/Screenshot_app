@@ -70,6 +70,8 @@ class NotchController: ObservableObject {
         // Calculate notch geometry
         hasPhysicalNotch = screen.safeAreaInsets.top > 0
         notchSize = calculateNotchSize(screen: screen)
+        // Hugging height needs the strip height to size the to-do panel.
+        AppState.shared.notchBarHeight = notchSize.height
 
         // Panel is ALWAYS at max expanded size — we animate the shape inside, not the window
         let panelFrame = calculateMaxPanelFrame(screen: screen)
@@ -135,6 +137,7 @@ class NotchController: ObservableObject {
         guard let panel, let screen = NSScreen.main else { return }
         hasPhysicalNotch = screen.safeAreaInsets.top > 0
         notchSize = calculateNotchSize(screen: screen)
+        AppState.shared.notchBarHeight = notchSize.height
         let newFrame = calculateMaxPanelFrame(screen: screen)
         if panel.frame != newFrame {
             panel.setFrame(newFrame, display: true, animate: false)
@@ -199,6 +202,22 @@ class NotchController: ObservableObject {
             // Start auto-collapse timer
             startAutoCollapseTimer()
         }
+    }
+
+    /// Policy rule 2: a real click outside the panel closes it no matter
+    /// which mode is up. Unpins first so the collapse guards can't veto it.
+    private func handleOutsideClick(_ location: NSPoint) {
+        guard state == .expanded, let screen = NSScreen.main else { return }
+        guard !expandedPanelRect(screen: screen).insetBy(dx: -8, dy: -8).contains(location) else { return }
+        forceCollapse()
+    }
+
+    /// Collapse that overrides the modal pin — the one guaranteed exit.
+    func forceCollapse() {
+        TodoStore.shared.setMode(.browsing)
+        TodoStore.shared.showShortcuts = false
+        panel?.resignKey()
+        triggerCollapse()
     }
 
     func triggerCollapse() {
@@ -454,11 +473,27 @@ class NotchController: ObservableObject {
     // MARK: - Mouse Tracking
 
     private func startMouseTracking() {
-        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
+        // ── CLOSE POLICY (Marcello, 2026-07-15) ─────────────────────
+        // 1. Pointer LEAVING the panel: closes while browsing; never closes
+        //    while a modal surface is up (create/find/category/overlay) —
+        //    typing must not be yanked away by a stray mouse move.
+        // 2. An explicit CLICK outside the panel ALWAYS closes, every mode —
+        //    the creation draft survives (KB-11), nothing is lost.
+        // 3. Esc backs out one level: modal surface → browsing → closed.
+        // There is always a way out: one outside click, or Esc (twice at most).
+        mouseMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp, .leftMouseDown]) { [weak self] event in
             let isDrag = event.type == .leftMouseDragged
             let isUp = event.type == .leftMouseUp
+            let isDown = event.type == .leftMouseDown
             Task { @MainActor in
                 guard let self else { return }
+                if isDown {
+                    // Global monitor = the click landed in ANOTHER app or the
+                    // desktop (our own panel's clicks arrive via the local
+                    // monitor) → policy rule 2.
+                    self.handleOutsideClick(NSEvent.mouseLocation)
+                    return
+                }
                 if isUp {
                     // Drag session over — normal hover/collapse rules resume.
                     self.isDragSessionActive = false
@@ -492,6 +527,10 @@ class NotchController: ObservableObject {
             if event.keyCode == 53 { // escape — close the notch even while
                                      // engaged (engagement blocks auto-collapse)
                 let handled = MainActor.assumeIsolated { () -> Bool in
+                    // A modal to-do surface owns Escape (backs out one level
+                    // via TodoBrowsingKeyHandler); only a plain browsing
+                    // panel closes outright.
+                    guard !TodoStore.shared.isPanelPinnedOpen else { return false }
                     guard self.state == .expanded else { return false }
                     self.panel?.resignKey()
                     self.triggerCollapse()
@@ -731,10 +770,42 @@ class NotchController: ObservableObject {
     /// picker) is key. Collapse is suspended so interaction can't be
     /// yanked away mid-click; it resumes once focus moves elsewhere.
     private var isUserEngaged: Bool {
+        // A modal to-do surface (creation "+" tab, Quick Find, category
+        // form, shortcuts overlay) pins the panel open — auto-collapse
+        // mid-typing would destroy the draft.
+        if TodoStore.shared.isPanelPinnedOpen { return true }
         guard let panel else { return false }
         if panel.isKeyWindow { return true }
         if let key = NSApp.keyWindow, key.parent === panel { return true }
         return false
+    }
+
+    // MARK: - To-do creation entry points (design PRD §3)
+
+    /// KB-3: ⌘N / ⌥Space land on the in-panel "+" tab — one creation
+    /// surface, no floating window.
+    func openCreate() {
+        TodoStore.shared.setMode(.create)
+        triggerExpand()
+        makeKeyForTyping()
+    }
+
+    /// ⌥Space toggles: already on the "+" tab → dismiss; otherwise open it.
+    func toggleCreate() {
+        if state == .expanded && TodoStore.shared.panelMode == .create {
+            TodoStore.shared.setMode(.browsing)
+            panel?.resignKey()
+            triggerCollapse()
+        } else {
+            openCreate()
+        }
+    }
+
+    /// Give the panel key status immediately (mode switches from inside the
+    /// already-expanded panel, e.g. tapping the "+" tab).
+    func focusPanel() {
+        (panel as? NotchPanel)?.allowKey = true
+        panel?.makeKey()
     }
 
     private func calculateMaxPanelFrame(screen: NSScreen) -> NSRect {
